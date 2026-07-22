@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NAVEE XT5 Unlock</title>
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>NAVEE XT5 <span>Unlock</span></h1>
+    <span class="status" id="status" data-state="disconnected">disconnected</span>
+  </header>
+  <p class="sub">Live region/speed unlock over Web Bluetooth. Works in Chrome (Android/desktop) or Bluefy (iOS).</p>
+
+  <div class="card danger-card">
+    <h2>Read this first</h2>
+    <p class="hint"><b>Experimental - not yet verified on hardware.</b> This reproduces what the official app does: it sets the scooter's region/SKU, which selects the speed cap. It does <b>not</b> flash firmware.</p>
+    <p class="warn"><b>Persistent.</b> The official app writes the region only once, at bind - a normal reconnect just reads it. So this change survives reopening the app. It reverts only if you unbind and rebind in the app, or manually pick a lower speed there.</p>
+  </div>
+
+  <div class="card">
+    <h2>Controls</h2>
+    <div class="btns">
+      <button class="primary" id="btn-connect">Connect</button>
+      <button id="btn-disconnect">Disconnect</button>
+      <button id="btn-read" disabled>Read status</button>
+    </div>
+    <div class="btns">
+      <button class="primary" id="btn-unlock" disabled>Unlock (write country)</button>
+      <button id="btn-scan" disabled>Scan values</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Status</h2>
+    <div class="grid">
+      <div class="tile"><b id="t-region">-</b><small>Region</small></div>
+      <div class="tile"><b id="t-sku">-</b><small>SKU</small></div>
+      <div class="tile"><b id="t-max">-</b><small>Max speed</small></div>
+      <div class="tile"><b id="t-limit">-</b><small>Limit</small></div>
+    </div>
+    <div class="row"><span class="fin">Serial: <span id="t-sn">-</span></span></div>
+  </div>
+
+  <div class="card">
+    <h2>Settings</h2>
+    <div class="row">
+      <label class="full">Country value</label>
+      <input id="country-in" type="number" inputmode="numeric" min="0" max="255" placeholder="use Scan to find it" disabled>
+    </div>
+    <p class="hint"><b>Read status</b> first to see the current max speed and region. Then <b>Scan</b> tries the region values, reads the resulting max speed after each, and fills the best one in here - press <b>Unlock</b> to apply it.</p>
+    <details>
+      <summary>Advanced</summary>
+      <p class="hint">The connection uses an auto-generated account id, so you normally leave this empty. Fill it only if the scooter refuses to connect (then use the owner's account id). Or paste a captured connect handshake to replay it.</p>
+      <div class="row">
+        <input id="uid-in" type="number" inputmode="numeric" class="full" placeholder="account id override (optional)">
+      </div>
+      <div class="row">
+        <input id="authhex-in" class="full" placeholder="or paste a captured auth frame as hex" autocapitalize="off" autocomplete="off" spellcheck="false">
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>Log</h2>
+    <pre id="log"></pre>
+  </div>
+
+  <footer class="foot">
+    <p>Standalone Web Bluetooth - all BLE stays on your device. No server, no tracking.</p>
+    <p class="footlinks">
+      <a href="https://github.com/Laufbursche42/navee-unlock" target="_blank" rel="noopener">Source</a>
+      <a href="license.md">License</a>
+      <a href="PRIVACY.md">Privacy</a>
+      <a href="TRADEMARKS.md">Trademarks</a>
+    </p>
+  </footer>
+</div>
+<script src="app.js?v=1"></script>
+</body>
+</html>

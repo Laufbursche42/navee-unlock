@@ -1,0 +1,24 @@
+# OS
+Thumbs.db
+.DS_Store
+# IDE
+.idea/
+*.iml
+.vscode/
+# Dev tooling only (nothing here is shipped)
+node_modules/
+# Secrets - never commit
+*.pem
+*.jks
+*.p12
+*.keystore
+.env
+secrets.*
+token.txt
+# Logs
+*.log
+# Firmware / APK artifacts (never shipped in this repo)
+*.apk
+*.xapk
+*.hex
+*.bin
