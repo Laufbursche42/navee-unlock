@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v5';
+const BUILD = 'v6';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
@@ -95,7 +95,7 @@ function parseHexFrame(s){
 }
 
 // ---------- BLE ----------
-let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false;
+let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false, lastMaxSpeed=null;
 // Read status once, automatically, right after authentication so the live values and the
 // model-specific settings appear without the user pressing Read.
 function autoRead(){ if(autoReadDone) return; autoReadDone=true; setTimeout(()=>{ if(authed) readStatus(); }, 500); }
@@ -173,7 +173,7 @@ function decodeParams(f){
   };
   // the custom-limit byte carries the enable flag in bit7; show the plain value too
   const limitVal = o.limitSpeed==null ? null : (o.limitSpeed & 0x7f);
-  if(o.maxSpeed!=null)  $('t-max').textContent   = o.maxSpeed;
+  if(o.maxSpeed!=null){ $('t-max').textContent = o.maxSpeed; lastMaxSpeed=o.maxSpeed; updateToggle(); }
   if(limitVal!=null)    $('t-limit').textContent = limitVal + (o.limitSpeed & 0x80 ? ' (on)' : ' (off)');
   log(`params: max=${o.maxSpeed} limit=${limitVal} start=${o.startSpeed} mode=${o.driveMode} lock=${o.lock} unit=${o.unit}`);
   log('raw param data: '+hexs(p));
@@ -248,6 +248,21 @@ async function writeMaxSpeed(kmh){
   await sendFrame(writeFrame(CMD.MAX_SPEED, [0x01, kmh&0xff]));
   log('max speed -> '+(kmh&0xff)+' km/h');
 }
+// ----- throttle lock/unlock (one button, like trfm/trbm) -----
+// "Entsperren" writes the open top speed, "Sperren" writes the legal/locked one, both via 0x6E.
+function drOpenVal(){ return parseInt(($('open-in')||{}).value||'32',10)||32; }
+function drLockedVal(){ return parseInt(($('locked-in')||{}).value||'20',10)||20; }
+function drIsLocked(){ return lastMaxSpeed!=null && lastMaxSpeed<=drLockedVal(); }
+function persistDrossel(){ try{ localStorage.setItem('navee.open', String(drOpenVal())); localStorage.setItem('navee.locked', String(drLockedVal())); }catch(e){} }
+function loadDrossel(){ try{ const o=localStorage.getItem('navee.open'), l=localStorage.getItem('navee.locked'); if(o&&$('open-in')) $('open-in').value=o; if(l&&$('locked-in')) $('locked-in').value=l; }catch(e){} }
+function updateToggle(){ const b=$('btn-locktoggle'); if(!b) return; b.textContent = drIsLocked() ? t('btnUnlock2') : t('btnLock2'); }
+async function doToggle(){
+  if(!authed){ log('not authenticated'); return; }
+  const target = drIsLocked() ? drOpenVal() : drLockedVal();
+  persistDrossel();
+  await writeMaxSpeed(target);
+  setTimeout(()=>{ if(authed) sendFrame(readFrame(CMD.READ_PARAMS)); }, 400);   // read back so the button flips
+}
 // Direct startup speed (0x6A). value 0 = zero-start, higher = push-to-start threshold.
 async function writeStartSpeed(v){
   if(!authed){ log('not authenticated'); return; }
@@ -284,13 +299,13 @@ async function scan(){
   else log('scan: no readable maxSpeed - check the raw report bytes in the log');
 }
 
-function onDisconnect(){ connected=false; authed=false; autoReadDone=false; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); }
+function onDisconnect(){ connected=false; authed=false; autoReadDone=false; lastMaxSpeed=null; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); }
 function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(); }
 
 function refreshButtons(){
   const on=connected;
   $('btn-read').disabled=!on; $('btn-unlock').disabled=!on; $('btn-scan').disabled=!on; $('country-in').disabled=!on;
-  const sp=$('btn-setspeed'); if(sp){ sp.disabled=!on; $('btn-setlimit').disabled=!on; $('speed-in').disabled=!on; $('limit-in').disabled=!on; }
+  { const t=$('btn-locktoggle'); if(t){ t.disabled=!on; $('open-in').disabled=!on; $('locked-in').disabled=!on; } }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
 }
 
@@ -334,8 +349,8 @@ function wireControls(){
   $('btn-read').addEventListener('click', readStatus);
   $('btn-unlock').addEventListener('click', ()=> writeCountry(parseInt($('country-in').value||'0',10)||0));
   $('btn-scan').addEventListener('click', scan);
-  $('btn-setspeed').addEventListener('click', ()=> writeMaxSpeed(parseInt($('speed-in').value||'0',10)||0));
-  $('btn-setlimit').addEventListener('click', ()=> writeLimitSpeed(parseInt($('limit-in').value||'0',10)||0, true));
+  $('btn-locktoggle').addEventListener('click', doToggle);
+  ['open-in','locked-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', ()=>{ persistDrossel(); updateToggle(); }); });
   SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=> s.send(parseInt($(s.sel).value||'0',10)||0)); });
   $('btn-copy-log').addEventListener('click', copyLog);
   $('btn-clear-log').addEventListener('click', clearLog);
@@ -358,6 +373,7 @@ function applyLang(){
   document.querySelectorAll('#langs button').forEach(b=> b.setAttribute('aria-pressed', String(b.dataset.lang===lang)));
   const st=$('status'); if(st) setStatus(st.dataset.state||'disconnected');
   const th=$('btn-theme'); if(th){ const dark=document.documentElement.getAttribute('data-theme')!=='light'; th.setAttribute('aria-label', t(dark?'themeToLight':'themeToDark')); th.title=th.getAttribute('aria-label'); }
+  updateToggle();
 }
 function initLang(){
   let saved=null; try{ saved=localStorage.getItem('navee.lang'); }catch(e){}
@@ -468,7 +484,7 @@ function wireDocViewer(){
 
 // ---------- help modal ----------
 const HELP = {
-  speed:   ['s3Title', 'speedHelp'],
+  drossel: ['drTitle', 'drHelp'],
   more:    ['moreTitle', 'moreHelp'],
   country: ['s4Title', 'countryHelp'],
   account: ['accountTitle', 'accountHelp'],
@@ -485,6 +501,7 @@ function wireHelp(){
 }
 
 wireControls();
+loadDrossel();
 initLang();
 initTheme();
 wireDocViewer();

@@ -8,7 +8,7 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="favicon-180.png">
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 <div class="wrap">
@@ -62,18 +62,19 @@
   </div>
 
   <div class="card">
-    <div class="card-head"><h2 data-t="s3Title"></h2><button type="button" class="help-btn" data-help="speed" aria-label="Info">?</button></div>
-    <div class="set-row">
-      <label data-t="lblMaxSpeed"></label>
-      <input id="speed-in" type="number" inputmode="numeric" min="0" max="255" placeholder="32" disabled>
-      <button class="primary" id="btn-setspeed" data-t="btnSend" disabled></button>
+    <div class="card-head"><h2 data-t="drTitle"></h2><button type="button" class="help-btn" data-help="drossel" aria-label="Info">?</button></div>
+    <div class="btns">
+      <button class="primary span2" id="btn-locktoggle" disabled></button>
     </div>
     <div class="set-row">
-      <label data-t="lblLimit2"></label>
-      <input id="limit-in" type="number" inputmode="numeric" min="0" max="127" placeholder="22" disabled>
-      <button id="btn-setlimit" data-t="btnSend" disabled></button>
+      <label data-t="drOpen"></label>
+      <input id="open-in" type="number" inputmode="numeric" min="0" max="255" value="32" disabled>
     </div>
-    <p class="hint" data-t="speedHint"></p>
+    <div class="set-row">
+      <label data-t="drLocked"></label>
+      <input id="locked-in" type="number" inputmode="numeric" min="0" max="255" value="20" disabled>
+    </div>
+    <p class="hint" data-t="drHint"></p>
   </div>
 
   <div class="card">
@@ -213,7 +214,7 @@
   </div>
 </dialog>
 
-<script src="i18n.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="i18n.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
