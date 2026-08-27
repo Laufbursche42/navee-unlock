@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v2';
+const BUILD = 'v3';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
