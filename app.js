@@ -1,26 +1,51 @@
 // NAVEE XT5 Unlock - standalone Web Bluetooth. All BLE stays local; no server, no tracking.
-// Reverse-engineered from the official app (com.navee.ucaret v2.1.5, com.uz.navee.ble.*).
+// Reverse-engineered from the official app (com.navee.ucaret, com.uz.navee.ble.*).
 //
-// Protocol (confirmed from decompiled BleHandler / ByteUtil):
+// Verified byte-for-byte against the decompiled app v2.1.6 (versionCode 110).
+// (The repo previously referenced v2.1.5; keys, frame format and auth are unchanged in 2.1.6.)
+//
+// Protocol (confirmed from decompiled BleHandler / ByteUtil in v2.1.6):
 //   GATT service 0000d0ff-3c17-d293-8e48-14fe2e4da212, WRITE 0000b002, NOTIFY 0000b003
-//   Frame READ : 55 AA 00 <cmd> <cksum> FE FD
-//   Frame WRITE: 55 AA 00 <cmd> <len> <payload...> <cksum> FE FD
-//   cksum = (sum of every byte from 0x55 through the last payload byte) & 0xFF
-//   Auth = challenge/response:
-//     TX 0x30  55 AA 00 30 09 <keyIdx> 00 <s(userId)=8A + 48bitBE, 6B> 00 <cksum> FE FD
-//     RX 0x30  scooter returns a 16-byte challenge
-//     TX 0x31  55 AA 00 31 10 <AES-128-ECB(challenge, keys[keyIdx])> <cksum> FE FD
-//   Region write (persistent unlock): 55 AA 00 6F 02 08 <country> <cksum> FE FD
-//     <country> = latlngCountryValue (server-issued int) - supply via field or Scan.
-const BUILD = 'v1';
+//   Frame READ : 55 AA <flag> <cmd> <cksum> FE FD                       (BleHandler.j)
+//   Frame WRITE: 55 AA <flag> <cmd> <len> <payload...> <cksum> FE FD    (BleHandler.k/l)
+//   flag byte is 0x00 for all app reads/writes; cksum = (sum of every byte from 0x55
+//   through the last payload byte) & 0xFF (BleHandler.d0).
+//   RX  frame : 55 AA <flag> <cmd> <len> <ERRCODE> <data...> <cksum> FE FD
+//     IMPORTANT: on receive, byte[5] is an ERROR/STATUS code (0 = ok). The data block the
+//     app decodes starts at byte[6]. <len> counts errcode + data. (BleHandler.G, line ~260)
+//   Auth = challenge/response (byte-exact, unchanged):
+//     TX 0x30  55 AA 00 30 09 <keyIdx> <shareFlag> <s(userId)=8A + 48bitBE, 6B> 00 <cksum> FE FD
+//     RX 0x30  scooter returns a 16-byte challenge (data block)
+//     TX 0x31  55 AA 00 31 10 <AES-128-ECB-encrypt(challenge, keys[keyIdx])> <cksum> FE FD
+//     RX 0x31  errcode 0 => authenticated
+//   ByteUtil.j = AES/ECB/NoPadding, Cipher ENCRYPT (mode 1) -> the response IS an encryption.
+//
+// Speed levers (all verified in v2.1.6, sent via BleHandler.k/l from the app's own screens):
+//   0x6B (107) custom speed limit  : 55 AA 00 6B 01 <val> ...   val = kmh & 0x7F, bit7 = limit-on
+//                                    (SpeedLimitActivity -> sendCmd 107)
+//   0x6E (110) max speed / mode    : 55 AA 00 6E 02 01 <val> ... subcmd 01 = set max speed = <val> kmh
+//                                    (MaxSpeedActivity -> sendCmd 110 {1, val})
+//   0x6A (106) startup speed       : 55 AA 00 6A 01 <val> ...   (StartupSpeedActivity -> sendCmd 106)
+//   0x6F (111) scooter params      : subcmd 08 = region/country (persistent SKU), subcmd 06 = time
+//                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
+//   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
+//   are not exercised by the app and depend on what the firmware accepts (hardware test).
+const BUILD = 'v2 (verified vs app 2.1.6)';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
 const NOTIFY_CHAR = '0000b003-0000-1000-8000-00805f9b34fb';
 
-const CMD = { AUTH_INIT:0x30, AUTH_RESP:0x31, REGION:0x6F, READ_PARAMS:0x70, READ_SN:0x72, REPORT:0x70, SN_REPORT:0x74 };
+const CMD = {
+  AUTH_INIT:0x30, AUTH_RESP:0x31,
+  START_SPEED:0x6A, LIMIT_SPEED:0x6B, MAX_SPEED:0x6E,   // direct speed levers
+  REGION:0x6F,                                          // scooter params (subcmd 08 = country)
+  READ_PARAMS:0x70, REPORT:0x70,                        // read/report full vehicle param block
+  READ_BATTERY:0x72,                                    // (was mislabelled READ_SN in the old build)
+  READ_SN:0x74, SN_REPORT:0x74,                         // read/report car serial (region source)
+};
 
-// 5 built-in AES-128 keys (BleHandler.f19371l)
+// 5 built-in AES-128 keys (BleHandler.f19454l) - byte-for-byte identical in v2.1.6.
 const KEYS = [
   [0xA0,0xA1,0xA2,0xA3,0xA4,0xA5,0xA6,0xA7,0xA8,0xA9,0xAA,0xAB,0xAC,0xAD,0xAE,0xAF],
   [0x44,0x6D,0x10,0x72,0x6D,0xBE,0x05,0xF6,0x62,0xDF,0xAA,0xF0,0x13,0x27,0x30,0x3F],
@@ -41,16 +66,18 @@ function setStatus(s){ const el=$('status'); el.textContent=s; el.dataset.state=
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
 function ckSum(arr){ let s=0; for(const b of arr) s=(s+b)&0xff; return s; }
+// READ frame: 55 AA 00 <cmd> <ck> FE FD (BleHandler.j)
 function readFrame(cmd){ const body=[0x55,0xAA,0x00,cmd]; return new Uint8Array([...body, ckSum(body),0xFE,0xFD]); }
+// WRITE frame: 55 AA 00 <cmd> <len> <payload...> <ck> FE FD (BleHandler.k single byte / l byte[])
 function writeFrame(cmd,payload){ payload=payload||[]; const body=[0x55,0xAA,0x00,cmd,payload.length,...payload]; return new Uint8Array([...body, ckSum(body),0xFE,0xFD]); }
 
-// s(userId,0x8A): 6 bytes = 48-bit big-endian userId with top byte forced to 0x8A (ByteUtil.s)
+// s(userId,0x8A): 6 bytes = low 48-bit big-endian userId, top byte forced to 0x8A when zero (ByteUtil.s)
 function s6(userId){
   const b=new Uint8Array(6); let v=BigInt(userId>>>0);
   for(let i=5;i>=0;i--){ b[i]=Number(v & 0xffn); v>>=8n; }
   b[0]=0x8A; return b;
 }
-// 0x30 auth-init: payload = [keyIdx, 0x00, ...s6, 0x00]
+// 0x30 auth-init: payload = [keyIdx, shareFlag, ...s6, 0x00]  (len = 9). shareFlag 0 for a random uid.
 function authInitFrame(userId,keyIdx){ return writeFrame(CMD.AUTH_INIT, [keyIdx, 0x00, ...s6(userId), 0x00]); }
 
 // AES-128-ECB of one 16-byte block (WebCrypto CBC with zero IV == ECB for the first block)
@@ -92,16 +119,31 @@ function onNotify(ev){
   }
 }
 
+// RX layout (verified): [0]55 [1]AA [2]flag [3]cmd [4]len [5]errcode [6..]data <ck> FE FD
+// len counts errcode + data, so data = frame[6 .. 5+len].
+function frameParts(f){
+  const cmd=f[3], len=f[4], err=f[5];
+  const data=f.slice(6, 5+len);
+  return {cmd, len, err, data};
+}
+
 async function handleFrame(f){
   log('RX '+hexs(f));
-  const cmd=f[3], len=f[4], payload=f.slice(5,5+len);
-  if(cmd===CMD.AUTH_INIT){                 // challenge from scooter
-    if(payload.length>=16){
-      const challenge=payload.slice(payload.length-16);
+  const {cmd, err, data} = frameParts(f);
+  if(cmd===CMD.AUTH_INIT){                 // 0x30 from scooter
+    if(err!==0){ log('auth error code '+err); setStatus('error'); return; }
+    if(data.length>=16){                   // challenge present
+      const challenge=data.slice(data.length-16);
       log('auth challenge received, responding (key '+curKeyIdx+')');
       await sendFrame(await authRespFrame(challenge, curKeyIdx));
-      authed=true; setStatus('connected'); refreshButtons(); log('authenticated');
-    } else { authed=true; refreshButtons(); }  // short ack
+    } else {                               // short ack = session already up
+      authed=true; setStatus('connected'); refreshButtons(); log('authenticated (ack)');
+    }
+    return;
+  }
+  if(cmd===CMD.AUTH_RESP){                  // 0x31 result
+    if(err===0){ authed=true; setStatus('connected'); refreshButtons(); log('authenticated'); }
+    else log('auth response rejected, code '+err);
     return;
   }
   // fulfil any waiter for this cmd
@@ -110,28 +152,49 @@ async function handleFrame(f){
   if(cmd===CMD.SN_REPORT) decodeSN(f);
 }
 
-// param report (cmd 0x70): offsets into the data block (payload). Raw is logged so offsets are verifiable.
+// Full vehicle param report (cmd 0x70). Offsets are into the DATA block (byte[6]+), taken
+// verbatim from DeviceCarInfo parsing in BleHandler.G case 112 (v2.1.6). Raw is logged too.
 function decodeParams(f){
-  const p=f.slice(5, 5+f[4]);
+  const {err, data:p} = frameParts(f);
+  if(err!==0){ log('param report error code '+err); return {}; }
   const at=i=> (i<p.length? p[i] : null);
-  const startSpeed=at(19), limitSpeed=at(20), maxSpeed=at(25), lock=at(2), unit=at(7);
-  if(maxSpeed!=null) $('t-max').textContent=maxSpeed;
-  if(limitSpeed!=null) $('t-limit').textContent=limitSpeed;
-  log(`params: max=${maxSpeed} limit=${limitSpeed} start=${startSpeed} lock=${lock} unit=${unit}`);
-  return {maxSpeed, limitSpeed};
+  const o = {
+    lock:        at(2),
+    unit:        at(7),   // mileage unit (0 km / 1 mph)
+    startSpeed:  at(19),
+    limitSpeed:  at(20),
+    maxSpeed:    at(25),
+    driveMode:   at(26),
+    breakSpeed:  at(35),
+  };
+  // the custom-limit byte carries the enable flag in bit7; show the plain value too
+  const limitVal = o.limitSpeed==null ? null : (o.limitSpeed & 0x7f);
+  if(o.maxSpeed!=null)  $('t-max').textContent   = o.maxSpeed;
+  if(limitVal!=null)    $('t-limit').textContent = limitVal + (o.limitSpeed & 0x80 ? ' (on)' : ' (off)');
+  log(`params: max=${o.maxSpeed} limit=${limitVal} start=${o.startSpeed} mode=${o.driveMode} lock=${o.lock} unit=${o.unit}`);
+  log('raw param data: '+hexs(p));
+  return o;
 }
 function decodeSN(f){
-  const p=f.slice(5, 5+f[4]);
+  const {err, data:p} = frameParts(f);
+  if(err!==0){ log('SN report error code '+err); return; }
   let sn=''; for(const c of p){ if(c>=0x20&&c<0x7f) sn+=String.fromCharCode(c); }
   sn=sn.trim();
   if(sn.length>=10){ const area=sn.substring(8,10); $('t-sn').textContent=sn; $('t-region').textContent=area; $('t-sku').textContent=skuOf(area); log('serial '+sn+' -> region '+area+' (SKU '+skuOf(area)+')'); }
-  else log('SN report: '+hex(f));
+  else log('SN report: '+hexs(f));
 }
 
 async function connect(){
   try{
     setStatus('connecting');
-    device=await navigator.bluetooth.requestDevice({ filters:[{services:[SERVICE]}], optionalServices:[SERVICE] });
+    // The app scans and matches by NAME (name.contains("NAVEE")); the scooter does not advertise
+    // the 128-bit service UUID, so filtering by service would show an empty chooser. Filter by name
+    // and declare the service as optional so we can use it after connecting.
+    const showAll = $('showall') && $('showall').checked;
+    const opts = showAll
+      ? { acceptAllDevices:true, optionalServices:[SERVICE] }
+      : { filters:[{namePrefix:'NAVEE'}], optionalServices:[SERVICE] };
+    device=await navigator.bluetooth.requestDevice(opts);
     device.addEventListener('gattserverdisconnected', onDisconnect);
     const server=await device.gatt.connect();
     const svc=await server.getPrimaryService(SERVICE);
@@ -155,16 +218,36 @@ async function authenticate(){
 
 async function readStatus(){
   if(!authed){ log('not authenticated yet'); return; }
-  await sendFrame(readFrame(CMD.READ_SN));    // -> 0x74 serial/region
+  await sendFrame(readFrame(CMD.READ_SN));     // 0x74 -> serial/region (source of the SKU)
   await sleep(300);
-  await sendFrame(readFrame(CMD.READ_PARAMS)); // -> 0x70 speeds
+  await sendFrame(readFrame(CMD.READ_PARAMS)); // 0x70 -> full param block incl. speeds
 }
 
+// ----- writers -----
 async function writeCountry(val){
   if(!authed){ log('not authenticated'); return; }
   val=val&0xff;
-  await sendFrame(writeFrame(CMD.REGION, [0x08, val]));
+  await sendFrame(writeFrame(CMD.REGION, [0x08, val]));   // 0x6F subcmd 08 = country/region
   log('country -> '+val+' (0x'+val.toString(16)+')');
+}
+// Direct custom speed limit (0x6B). enabled sets bit7 (limit active).
+async function writeLimitSpeed(kmh, enabled){
+  if(!authed){ log('not authenticated'); return; }
+  const val=((kmh&0x7f) | (enabled?0x80:0)) & 0xff;
+  await sendFrame(writeFrame(CMD.LIMIT_SPEED, [val]));
+  log('limit speed -> '+(kmh&0x7f)+' km/h '+(enabled?'(on)':'(off)'));
+}
+// Direct max speed (0x6E, subcmd 01).
+async function writeMaxSpeed(kmh){
+  if(!authed){ log('not authenticated'); return; }
+  await sendFrame(writeFrame(CMD.MAX_SPEED, [0x01, kmh&0xff]));
+  log('max speed -> '+(kmh&0xff)+' km/h');
+}
+// Direct startup speed (0x6A).
+async function writeStartSpeed(kmh){
+  if(!authed){ log('not authenticated'); return; }
+  await sendFrame(writeFrame(CMD.START_SPEED, [kmh&0xff]));
+  log('start speed -> '+(kmh&0xff)+' km/h');
 }
 
 // Scan: try candidate country values, read back maxSpeed after each. Finds the unrestricted value.
@@ -190,6 +273,7 @@ function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(
 function refreshButtons(){
   const on=connected;
   $('btn-read').disabled=!on; $('btn-unlock').disabled=!on; $('btn-scan').disabled=!on; $('country-in').disabled=!on;
+  const sp=$('btn-setspeed'); if(sp){ sp.disabled=!on; $('btn-setlimit').disabled=!on; $('speed-in').disabled=!on; }
 }
 
 $('btn-connect').addEventListener('click', connect);
@@ -197,6 +281,9 @@ $('btn-disconnect').addEventListener('click', disconnect);
 $('btn-read').addEventListener('click', readStatus);
 $('btn-unlock').addEventListener('click', ()=> writeCountry(parseInt($('country-in').value||'0',10)||0));
 $('btn-scan').addEventListener('click', scan);
+if($('btn-setspeed')) $('btn-setspeed').addEventListener('click', ()=> writeMaxSpeed(parseInt($('speed-in').value||'0',10)||0));
+if($('btn-setlimit')) $('btn-setlimit').addEventListener('click', ()=> writeLimitSpeed(parseInt($('speed-in').value||'0',10)||0, true));
 log('NAVEE unlock build '+BUILD);
-log('Auth + region-write are byte-exact from the app. The country VALUE and the report offsets are verified live on the scooter (Read status + Scan).');
+log('Connect matches the scooter by name (NAVEE...), like the official app. Auth and all frames are byte-exact from app 2.1.6.');
+log('Speed levers: Set max speed = 0x6E, Set limit = 0x6B (both direct), or use country/region 0x6F.');
 if(!('bluetooth' in navigator)) log('Web Bluetooth not available - use Chrome (Android/desktop) or Bluefy (iOS).');
