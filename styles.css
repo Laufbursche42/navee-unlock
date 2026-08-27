@@ -180,3 +180,8 @@ dialog::backdrop { background: var(--backdrop); }
 input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Throttle: the two target values side by side. */
+.dr-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dr-field { display: flex; flex-direction: column; gap: 6px; }
+.dr-field input { width: 100%; }
