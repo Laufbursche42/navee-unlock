@@ -24,7 +24,7 @@ Das Tool spricht das Standard-Scooter-Protokoll von NAVEE, dasselbe, das die off
 
 ## Wie weit geht es
 
-Für die XT5 bietet die offizielle App selbst bis **32 km/h** an. Das Tool lässt auch höhere Werte zu, aber ob der Controller sie übernimmt oder selbst abriegelt, ist vorher nicht bekannt. Genau das testest du an deinem eigenen Scooter. Andere Modelle der Linie haben in der App höhere Obergrenzen (bis 60 oder 70 km/h), dort kann derselbe Befehl weiter gehen.
+Wie weit es geht, hängt vom Modell und der Firmware ab. Die offizielle App bietet je nach Modell unterschiedliche Obergrenzen an, von rund 32 bis 70 km/h. Das Tool lässt jeden Wert zu, auch höhere. Ob der Controller einen Wert übernimmt oder selbst abriegelt, ist vorher nicht bekannt. Probier verschiedene Werte aus und lies danach den Status, um zu sehen was hängen bleibt.
 
 ## Ist es dauerhaft
 

@@ -33,7 +33,7 @@ window.I18N = {
     lblSpeed: "Wert (km/h)",
     btnSetSpeed: "Max-Speed setzen",
     btnSetLimit: "Limit setzen",
-    speedHint: "Direkt, wie in den App-Screens Max-Speed und Limit. Du kannst jeden Wert eintragen, nicht nur die von der App angebotenen. Für die XT5 geht die App selbst bis 32 km/h. Ob die Firmware höhere Werte annimmt, zeigt erst der Test am Gerät.",
+    speedHint: "Ein Feld, zwei Befehle: Trage einen Wert in km/h ein und schicke ihn wahlweise als Maximalgeschwindigkeit (0x6E) oder als Limit (0x6B). Das sind genau die Befehle der beiden App-Screens. Welche Werte dein Scooter übernimmt oder ab wann er selbst abriegelt, hängt vom Modell und der Firmware ab. Probier ruhig aus was geht und lies danach den Status, damit du siehst was hängen bleibt.",
 
     s4Title: "Region-Weg (SKU)",
     lblCountry: "Ländercode",
@@ -104,7 +104,7 @@ window.I18N = {
     lblSpeed: "Value (km/h)",
     btnSetSpeed: "Set max speed",
     btnSetLimit: "Set limit",
-    speedHint: "Direct, like the app's own Max-speed and Speed-limit screens. You can enter any value, not just the ones the app offers. For an XT5 the app itself goes up to 32 km/h. Whether the firmware accepts higher values is what the hardware test shows.",
+    speedHint: "One field, two commands: enter a value in km/h and send it either as the maximum speed (0x6E) or as the limit (0x6B). Those are exactly the commands behind the app's two screens. Which values your scooter accepts or where it caps itself depends on the model and its firmware. Just try what works and read the status afterwards to see what sticks.",
 
     s4Title: "Region route (SKU)",
     lblCountry: "Country value",
