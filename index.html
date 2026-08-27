@@ -1,96 +1,149 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>NAVEE XT5 Unlock</title>
-<link rel="stylesheet" href="styles.css?v=1">
+<title data-t="pageTitle">Laufbursche NAVEE Tool</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="favicon-180.png">
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>NAVEE XT5 <span>Unlock</span></h1>
-    <span class="status" id="status" data-state="disconnected">disconnected</span>
+    <h1>Laufbursche <span data-t="brandSub">NAVEE Tool</span></h1>
+    <div class="head-right">
+      <span class="status" id="status" data-state="disconnected">disconnected</span>
+      <div class="head-tools">
+        <button type="button" class="theme-btn" id="btn-theme">&#9728;</button>
+        <div class="langs" id="langs" role="group">
+          <button type="button" data-lang="de" aria-pressed="true">DE</button>
+          <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        </div>
+      </div>
+    </div>
   </header>
-  <p class="sub">Live region/speed unlock over Web Bluetooth. Works in Chrome (Android/desktop) or Bluefy (iOS).</p>
 
-  <div class="card danger-card">
-    <h2>Read this first</h2>
-    <p class="hint"><b>Experimental - not yet verified on hardware.</b> This reproduces what the official app does: it sets the scooter's region/SKU, which selects the speed cap. It does <b>not</b> flash firmware.</p>
-    <p class="warn"><b>Persistent.</b> The official app writes the region only once, at bind - a normal reconnect just reads it. So this change survives reopening the app. It reverts only if you unbind and rebind in the app, or manually pick a lower speed there.</p>
+  <div class="card">
+    <h2 data-t="s1Title"></h2>
+    <p class="hint" data-t="sub"></p>
+    <p class="hint" data-t="startHintGuide"></p>
+    <p class="warn" data-t="expWarn"></p>
+    <p class="hint" data-t="ownDevice"></p>
   </div>
 
   <div class="card">
-    <h2>Controls</h2>
+    <h2 data-t="s2Title"></h2>
     <div class="btns">
-      <button class="primary" id="btn-connect">Connect</button>
-      <button id="btn-disconnect">Disconnect</button>
-      <button id="btn-read" disabled>Read status</button>
-    </div>
-    <div class="btns">
-      <button class="primary" id="btn-unlock" disabled>Unlock (write country)</button>
-      <button id="btn-scan" disabled>Scan values</button>
+      <button class="primary" id="btn-connect" data-t="btnConnect"></button>
+      <button id="btn-disconnect" data-t="btnDisconnect"></button>
     </div>
     <div class="row">
-      <label><input type="checkbox" id="showall"> show all Bluetooth devices (only if NAVEE is not listed)</label>
+      <label><input type="checkbox" id="showall"> <span data-t="showAll"></span></label>
     </div>
+    <p class="hint" data-t="controlsHint"></p>
   </div>
 
   <div class="card">
-    <h2>Status</h2>
+    <h2 data-t="liveTitle"></h2>
     <div class="grid">
-      <div class="tile"><b id="t-region">-</b><small>Region</small></div>
-      <div class="tile"><b id="t-sku">-</b><small>SKU</small></div>
-      <div class="tile"><b id="t-max">-</b><small>Max speed</small></div>
-      <div class="tile"><b id="t-limit">-</b><small>Limit</small></div>
+      <div class="tile"><b id="t-region">-</b><small data-t="tileRegion"></small></div>
+      <div class="tile"><b id="t-sku">-</b><small data-t="tileSku"></small></div>
+      <div class="tile"><b id="t-max">-</b><small data-t="tileMax"></small></div>
+      <div class="tile"><b id="t-limit">-</b><small data-t="tileLimit"></small></div>
     </div>
-    <div class="row"><span class="fin">Serial: <span id="t-sn">-</span></span></div>
+    <div class="row"><span class="fin"><span data-t="serialLabel"></span> <span id="t-sn">-</span></span></div>
+    <div class="btns">
+      <button class="span2" id="btn-read" data-t="btnRead" disabled></button>
+    </div>
+    <p class="hint" data-t="liveHint"></p>
   </div>
 
   <div class="card">
-    <h2>Settings</h2>
+    <h2 data-t="s3Title"></h2>
     <div class="row">
-      <label class="full">Country value</label>
-      <input id="country-in" type="number" inputmode="numeric" min="0" max="255" placeholder="use Scan to find it" disabled>
-    </div>
-    <p class="hint"><b>Read status</b> first to see the current max speed and region. Then <b>Scan</b> tries the region values, reads the resulting max speed after each, and fills the best one in here - press <b>Unlock</b> to apply it.</p>
-    <div class="row">
-      <label class="full">Direct speed (km/h)</label>
-      <input id="speed-in" type="number" inputmode="numeric" min="0" max="255" placeholder="e.g. 32 - any value allowed" disabled>
+      <label class="full" data-t="lblSpeed"></label>
+      <input id="speed-in" type="number" inputmode="numeric" min="0" max="255" placeholder="32" disabled>
     </div>
     <div class="btns">
-      <button class="primary" id="btn-setspeed" disabled>Set max speed (0x6E)</button>
-      <button id="btn-setlimit" disabled>Set limit (0x6B)</button>
+      <button class="primary" id="btn-setspeed" data-t="btnSetSpeed" disabled></button>
+      <button id="btn-setlimit" data-t="btnSetLimit" disabled></button>
     </div>
-    <p class="hint">These write the speed directly, the same commands the official app's own Max-speed and Speed-limit screens use, without the region detour. You can enter <b>any</b> value here, not just the ones the app offers: <b>Set max speed</b> sends the raw byte (0-255) via 0x6E, <b>Set limit</b> sends it via 0x6B (0-127, limit-on bit set). For an XT5 the app itself only goes up to 32 km/h; whether the firmware accepts higher values is exactly what the hardware test shows.</p>
+    <p class="hint" data-t="speedHint"></p>
+  </div>
+
+  <div class="card">
+    <h2 data-t="s4Title"></h2>
+    <div class="row">
+      <label class="full" data-t="lblCountry"></label>
+      <input id="country-in" type="number" inputmode="numeric" min="0" max="255" placeholder="0-25" disabled>
+    </div>
+    <div class="btns">
+      <button class="primary" id="btn-unlock" data-t="btnUnlock" disabled></button>
+      <button id="btn-scan" data-t="btnScan" disabled></button>
+    </div>
+    <p class="hint" data-t="regionHint"></p>
     <details>
-      <summary>Advanced</summary>
-      <p class="hint">The connection uses an auto-generated account id, so you normally leave this empty. Fill it only if the scooter refuses to connect (then use the owner's account id). Or paste a captured connect handshake to replay it.</p>
+      <summary data-t="advTitle"></summary>
+      <p class="hint" data-t="advHint"></p>
       <div class="row">
-        <input id="uid-in" type="number" inputmode="numeric" class="full" placeholder="account id override (optional)">
+        <input id="uid-in" type="number" inputmode="numeric" class="full" data-t-ph="uidPlaceholder">
       </div>
       <div class="row">
-        <input id="authhex-in" class="full" placeholder="or paste a captured auth frame as hex" autocapitalize="off" autocomplete="off" spellcheck="false">
+        <input id="authhex-in" class="full" autocapitalize="off" autocomplete="off" spellcheck="false" data-t-ph="authhexPlaceholder">
       </div>
     </details>
   </div>
 
   <div class="card">
-    <h2>Log</h2>
+    <h2 data-t="s6Title"></h2>
+    <div class="btns">
+      <button type="button" id="btn-copy-log" data-t="btnCopyLog"></button>
+      <button type="button" id="btn-clear-log" data-t="btnClearLog"></button>
+    </div>
     <pre id="log"></pre>
+    <p class="hint"><span class="log-tx" data-t="logTxLegend"></span>, <span class="log-rx" data-t="logRxLegend"></span></p>
   </div>
 
   <footer class="foot">
-    <p>Standalone Web Bluetooth - all BLE stays on your device. No server, no tracking.</p>
-    <p class="footlinks">
-      <a href="https://github.com/Laufbursche42/navee-unlock" target="_blank" rel="noopener">Source</a>
-      <a href="license.md">License</a>
-      <a href="PRIVACY.md">Privacy</a>
-      <a href="TRADEMARKS.md">Trademarks</a>
-    </p>
+    <span class="footlinks">
+      <a id="link-guide" href="GUIDE.de.md" data-doc="GUIDE" data-t="footGuide"></a>
+      <a href="https://github.com/Laufbursche42/navee-unlock" target="_blank" rel="noopener" data-t="footSource"></a>
+      <a id="link-readme" href="README.md" data-doc="README" data-t="footReadme"></a>
+      <a id="link-disclaimer" href="#" data-t="footDisclaimer"></a>
+      <a id="link-license" href="LICENSE.de.md" data-doc="LICENSE" data-t="footLicense"></a>
+      <a id="link-privacy" href="PRIVACY.de.md" data-doc="PRIVACY" data-t="footPrivacy"></a>
+      <a id="link-trademarks" href="TRADEMARKS.de.md" data-doc="TRADEMARKS" data-t="footTrademarks"></a>
+    </span>
+    <span class="ver" id="build-ver"></span>
   </footer>
 </div>
-<script src="app.js?v=1"></script>
+
+<dialog id="doc" aria-labelledby="doc-title">
+  <div class="doc-head">
+    <h3 id="doc-title"></h3>
+    <button type="button" id="doc-x">&times;</button>
+  </div>
+  <div class="doc-body" id="doc-body"></div>
+  <div class="doc-foot">
+    <button type="button" id="doc-close" data-t="docClose"></button>
+  </div>
+</dialog>
+
+<dialog id="help" aria-labelledby="help-title">
+  <div class="doc-head">
+    <h3 id="help-title"></h3>
+    <button type="button" id="help-x">&times;</button>
+  </div>
+  <div class="doc-body"><p id="help-body"></p></div>
+  <div class="doc-foot">
+    <button type="button" id="help-close" data-t="docClose"></button>
+  </div>
+</dialog>
+
+<script src="i18n.js?v=2"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

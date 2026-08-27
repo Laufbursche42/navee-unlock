@@ -1,0 +1,145 @@
+'use strict';
+
+window.I18N = {
+  de: {
+    pageTitle: "Laufbursche NAVEE Tool",
+    brandSub: "NAVEE Tool",
+    langGroup: "Sprache",
+    themeToLight: "Auf helle Darstellung umschalten",
+    themeToDark: "Auf dunkle Darstellung umschalten",
+
+    s1Title: "So fängst du an",
+    sub: "Live über Web Bluetooth mit deinem NAVEE-Scooter reden. Läuft in Chrome (Android/Desktop) oder Bluefy (iOS). Nichts verlässt dein Gerät.",
+    startHintGuide: "Neu hier? Die vollständige Anleitung ist unten im Fuß der Seite verlinkt.",
+    expWarn: "Experimentell: Ob der Controller einen erhöhten Wert übernimmt oder selbst abriegelt, ist noch nicht am Gerät bestätigt. Genau das soll der Test klären. Alles hier stammt aus statischer Analyse der App 2.1.6, nicht aus dem Fahrzeug.",
+    ownDevice: "Nur am eigenen Fahrzeug auf privatem Gelände. Das Anheben der Höchstgeschwindigkeit hebt die Drossel auf, die ABE erlischt und der Betrieb auf öffentlichen Wegen ist dann nicht erlaubt.",
+
+    s2Title: "Verbindung",
+    btnConnect: "Verbinden",
+    btnDisconnect: "Trennen",
+    showAll: "Alle Bluetooth-Geräte zeigen (nur falls NAVEE nicht auftaucht)",
+    controlsHint: "Der Scooter muss an und in Reichweite sein. Er erscheint im Auswahldialog unter seinem Namen (NAVEE...) genau wie in der Hersteller-App und authentifiziert sich automatisch.",
+
+    liveTitle: "Status vom Scooter",
+    tileRegion: "Region",
+    tileSku: "SKU",
+    tileMax: "Max-Speed",
+    tileLimit: "Limit",
+    serialLabel: "Seriennummer:",
+    btnRead: "Status lesen",
+    liveHint: "Zuerst Status lesen, dann siehst du Region, SKU, Max- und Limit-Geschwindigkeit sowie die Seriennummer. Die rohen Meldungen stehen zusätzlich als Hex im Log.",
+
+    s3Title: "Geschwindigkeit setzen",
+    lblSpeed: "Wert (km/h)",
+    btnSetSpeed: "Max-Speed setzen",
+    btnSetLimit: "Limit setzen",
+    speedHint: "Direkt, wie in den App-Screens Max-Speed und Limit. Du kannst jeden Wert eintragen, nicht nur die von der App angebotenen. Für die XT5 geht die App selbst bis 32 km/h. Ob die Firmware höhere Werte annimmt, zeigt erst der Test am Gerät.",
+
+    s4Title: "Region-Weg (SKU)",
+    lblCountry: "Ländercode",
+    btnUnlock: "Region schreiben",
+    btnScan: "Werte durchprobieren",
+    regionHint: "Der klassische Weg: Die Region bestimmt die SKU und damit die Default-Obergrenze. Mit Durchprobieren wird nach jedem Wert die Max-Speed gelesen und der beste Wert eingetragen, dann Region schreiben.",
+
+    advTitle: "Erweitert",
+    advHint: "Die Verbindung nutzt eine zufällige Konto-ID, das Feld bleibt normalerweise leer. Nur ausfüllen, wenn der Scooter die Verbindung verweigert (dann die Konto-ID des Besitzers). Oder einen mitgeschnittenen Auth-Frame als Hex einfügen.",
+    uidPlaceholder: "Konto-ID (optional)",
+    authhexPlaceholder: "oder Auth-Frame als Hex einfügen",
+
+    s6Title: "Protokoll-Log",
+    btnCopyLog: "Log kopieren",
+    btnClearLog: "Log leeren",
+    logTxLegend: "TX / blau = gesendet",
+    logRxLegend: "RX / braun = empfangen",
+
+    footGuide: "Anleitung",
+    footDisclaimer: "Haftungsausschluss",
+    disclaimerText: "Dieses Werkzeug ist eine Machbarkeitsstudie, kein fertiges Produkt. Es gibt keine Gewährleistung und keine Garantie für fehlerfreien Betrieb. Das Anheben der Geschwindigkeit hebt die Drossel auf: die ABE erlischt und der Betrieb auf öffentlichen Wegen ist dann nicht erlaubt, mit den entsprechenden Folgen für Versicherung sowie Zulassung. Nutzung ausschließlich am eigenen Fahrzeug und auf eigenes Risiko. Die Seite spricht nur lokal per Bluetooth mit dem Gerät, es werden keine Daten an einen Server gesendet. NAVEE ist eine Marke des jeweiligen Inhabers. Dieses Projekt ist unabhängig und nicht mit NAVEE verbunden.",
+    footSource: "Quellcode",
+    footReadme: "Readme",
+    footLicense: "Lizenz",
+    footPrivacy: "Datenschutz",
+    footTrademarks: "Marken",
+    buildLabel: "Build",
+    docClose: "Schließen",
+    docLoading: "wird geladen ...",
+    docFail: "Das Dokument konnte nicht geladen werden.",
+    docEnglish: "(englisch)",
+
+    stDisconnected: "getrennt",
+    stConnecting: "verbinde ...",
+    stConnected: "verbunden",
+    stError: "Fehler"
+  },
+
+  en: {
+    pageTitle: "Laufbursche NAVEE Tool",
+    brandSub: "NAVEE Tool",
+    langGroup: "Language",
+    themeToLight: "Switch to light theme",
+    themeToDark: "Switch to dark theme",
+
+    s1Title: "Getting started",
+    sub: "Talk to your NAVEE scooter live over Web Bluetooth. Runs in Chrome (Android/desktop) or Bluefy (iOS). Nothing leaves your device.",
+    startHintGuide: "New here? The full guide is linked in the footer below.",
+    expWarn: "Experimental: whether the controller accepts a raised value or caps it on its own is not confirmed on hardware yet. That is exactly what the test is meant to clarify. Everything here comes from static analysis of app 2.1.6, not from the vehicle.",
+    ownDevice: "Only on your own vehicle on private ground. Raising the top speed removes the throttle limit, the road approval lapses and operating it on public roads is then not allowed.",
+
+    s2Title: "Connection",
+    btnConnect: "Connect",
+    btnDisconnect: "Disconnect",
+    showAll: "Show all Bluetooth devices (only if NAVEE is not listed)",
+    controlsHint: "The scooter has to be on and in range. It shows up in the chooser by name (NAVEE...), exactly like the manufacturer app, and authenticates automatically.",
+
+    liveTitle: "Status from the scooter",
+    tileRegion: "Region",
+    tileSku: "SKU",
+    tileMax: "Max speed",
+    tileLimit: "Limit",
+    serialLabel: "Serial:",
+    btnRead: "Read status",
+    liveHint: "Read status first to see region, SKU, max and limit speed and the serial. The raw messages are also logged as hex.",
+
+    s3Title: "Set speed",
+    lblSpeed: "Value (km/h)",
+    btnSetSpeed: "Set max speed",
+    btnSetLimit: "Set limit",
+    speedHint: "Direct, like the app's own Max-speed and Speed-limit screens. You can enter any value, not just the ones the app offers. For an XT5 the app itself goes up to 32 km/h. Whether the firmware accepts higher values is what the hardware test shows.",
+
+    s4Title: "Region route (SKU)",
+    lblCountry: "Country value",
+    btnUnlock: "Write region",
+    btnScan: "Scan values",
+    regionHint: "The classic route: the region selects the SKU and thus the default cap. Scan writes each value, reads the resulting max speed and fills in the best one, then press Write region.",
+
+    advTitle: "Advanced",
+    advHint: "The connection uses a random account id, so you normally leave this empty. Fill it only if the scooter refuses to connect (then use the owner's account id). Or paste a captured auth frame as hex.",
+    uidPlaceholder: "account id (optional)",
+    authhexPlaceholder: "or paste an auth frame as hex",
+
+    s6Title: "Protocol log",
+    btnCopyLog: "Copy log",
+    btnClearLog: "Clear log",
+    logTxLegend: "TX / blue = sent",
+    logRxLegend: "RX / brown = received",
+
+    footGuide: "Guide",
+    footDisclaimer: "Disclaimer",
+    disclaimerText: "This tool is a feasibility study, not a finished product. There is no warranty and no guarantee of error-free operation. Raising the speed removes the throttle: the type approval becomes void and riding on public roads is then not allowed, with the corresponding insurance and registration consequences. Use it only on your own vehicle and at your own risk. The page talks to the device locally over Bluetooth only, no data is sent to any server. NAVEE is a trademark of its respective owner. This project is independent and not affiliated with NAVEE.",
+    footSource: "Source",
+    footReadme: "Readme",
+    footLicense: "License",
+    footPrivacy: "Privacy",
+    footTrademarks: "Trademarks",
+    buildLabel: "build",
+    docClose: "Close",
+    docLoading: "loading ...",
+    docFail: "The document could not be loaded.",
+    docEnglish: "(English)",
+
+    stDisconnected: "disconnected",
+    stConnecting: "connecting ...",
+    stConnected: "connected",
+    stError: "error"
+  }
+};

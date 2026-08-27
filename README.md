@@ -1,8 +1,10 @@
-# NAVEE XT5 Unlock
+# Laufbursche NAVEE Tool
 
-**Live page: https://laufbursche42.github.io/navee-unlock/** - open it in Chrome (Android/desktop) or Bluefy (iOS), no install needed.
+**Live page: https://laufbursche42.github.io/navee-unlock/** - open it in Chrome (Android/desktop) or Bluefy (iOS), no install needed. The page is bilingual (German/English, switch in the header).
 
-A small static web page that connects to a NAVEE XT5 scooter over Web Bluetooth and changes its speed cap. It can set the max speed **directly** (the same 0x6E / 0x6B commands the official app's own Max-speed and Speed-limit screens use) or go the **region/SKU** route - the same lever the paid "license" tuners use. Nothing to install, no account, no firmware flash, no server: everything runs locally in the browser.
+A small static web page that connects to a NAVEE scooter over Web Bluetooth and changes its speed cap. It can set the max speed **directly** (the same 0x6E / 0x6B commands the official app's own Max-speed and Speed-limit screens use) or go the **region/SKU** route - the same lever the paid "license" tuners use. Nothing to install, no account, no firmware flash, no server: everything runs locally in the browser.
+
+**Which devices.** It speaks the standard NAVEE scooter protocol, the one the official app uses for the whole kick-scooter line (for example the XT5). The authentication keys are shared across these scooters, so the tool talks to any of them, not only the XT5. NAVEE e-bikes and the Exo line use different Bluetooth protocols and are not covered. Full walkthrough in the [guide](GUIDE.en.md).
 
 ## How it works
 

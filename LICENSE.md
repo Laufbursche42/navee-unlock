@@ -2,7 +2,7 @@
 
 Copyright (c) 2026 Laufbursche (https://github.com/Laufbursche42)
 
-**NAVEE XT5 Unlock (navee-unlock)** is licensed under the
+**Laufbursche NAVEE Tool (navee-unlock)** is licensed under the
 **Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License (CC BY-NC-ND 4.0)**.
 
 - Human-readable summary: https://creativecommons.org/licenses/by-nc-nd/4.0/

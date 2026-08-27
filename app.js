@@ -62,7 +62,8 @@ const $ = id => document.getElementById(id);
 function log(m){ const el=$('log'); el.textContent += m + '\n'; el.scrollTop = el.scrollHeight; }
 function hex(b){ return [...b].map(x=>x.toString(16).padStart(2,'0')).join(''); }
 function hexs(b){ return [...b].map(x=>x.toString(16).padStart(2,'0')).join(' '); }
-function setStatus(s){ const el=$('status'); el.textContent=s; el.dataset.state=s; }
+// data-state stays the canonical english key (CSS keys off it); the visible text is translated.
+function setStatus(s){ const el=$('status'); if(!el) return; el.dataset.state=s; const k='st'+s.charAt(0).toUpperCase()+s.slice(1); el.textContent = (typeof t==='function' ? t(k) : '') || s; }
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
 function ckSum(arr){ let s=0; for(const b of arr) s=(s+b)&0xff; return s; }
@@ -276,14 +277,152 @@ function refreshButtons(){
   const sp=$('btn-setspeed'); if(sp){ sp.disabled=!on; $('btn-setlimit').disabled=!on; $('speed-in').disabled=!on; }
 }
 
-$('btn-connect').addEventListener('click', connect);
-$('btn-disconnect').addEventListener('click', disconnect);
-$('btn-read').addEventListener('click', readStatus);
-$('btn-unlock').addEventListener('click', ()=> writeCountry(parseInt($('country-in').value||'0',10)||0));
-$('btn-scan').addEventListener('click', scan);
-if($('btn-setspeed')) $('btn-setspeed').addEventListener('click', ()=> writeMaxSpeed(parseInt($('speed-in').value||'0',10)||0));
-if($('btn-setlimit')) $('btn-setlimit').addEventListener('click', ()=> writeLimitSpeed(parseInt($('speed-in').value||'0',10)||0, true));
-log('NAVEE unlock build '+BUILD);
-log('Connect matches the scooter by name (NAVEE...), like the official app. Auth and all frames are byte-exact from app 2.1.6.');
-log('Speed levers: Set max speed = 0x6E, Set limit = 0x6B (both direct), or use country/region 0x6F.');
+function copyLog(){ const el=$('log'); if(!el) return; navigator.clipboard && navigator.clipboard.writeText(el.textContent); }
+function clearLog(){ const el=$('log'); if(el) el.textContent=''; }
+
+function wireControls(){
+  $('btn-connect').addEventListener('click', connect);
+  $('btn-disconnect').addEventListener('click', disconnect);
+  $('btn-read').addEventListener('click', readStatus);
+  $('btn-unlock').addEventListener('click', ()=> writeCountry(parseInt($('country-in').value||'0',10)||0));
+  $('btn-scan').addEventListener('click', scan);
+  $('btn-setspeed').addEventListener('click', ()=> writeMaxSpeed(parseInt($('speed-in').value||'0',10)||0));
+  $('btn-setlimit').addEventListener('click', ()=> writeLimitSpeed(parseInt($('speed-in').value||'0',10)||0, true));
+  $('btn-copy-log').addEventListener('click', copyLog);
+  $('btn-clear-log').addEventListener('click', clearLog);
+}
+
+// ---------- language ----------
+let lang='de';
+const table = () => (window.I18N && window.I18N[lang]) || {};
+function t(key){ const v=table()[key]; return (typeof v==='string') ? v : ''; }
+function applyLang(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-t]').forEach(n=>{ n.textContent=t(n.getAttribute('data-t')); });
+  document.querySelectorAll('[data-t-ph]').forEach(n=> n.setAttribute('placeholder', t(n.getAttribute('data-t-ph'))));
+  const g=$('link-guide'); if(g) g.href=docFile('GUIDE');
+  const li=$('link-license'); if(li) li.href=docFile('LICENSE');
+  const pr=$('link-privacy'); if(pr) pr.href=docFile('PRIVACY');
+  const tm=$('link-trademarks'); if(tm) tm.href=docFile('TRADEMARKS');
+  const ls=$('langs'); if(ls) ls.setAttribute('aria-label', t('langGroup'));
+  const bv=$('build-ver'); if(bv) bv.textContent=t('buildLabel')+' '+BUILD;
+  document.querySelectorAll('#langs button').forEach(b=> b.setAttribute('aria-pressed', String(b.dataset.lang===lang)));
+  const st=$('status'); if(st) setStatus(st.dataset.state||'disconnected');
+  const th=$('btn-theme'); if(th){ const dark=document.documentElement.getAttribute('data-theme')!=='light'; th.setAttribute('aria-label', t(dark?'themeToLight':'themeToDark')); th.title=th.getAttribute('aria-label'); }
+}
+function initLang(){
+  let saved=null; try{ saved=localStorage.getItem('navee.lang'); }catch(e){}
+  if(saved==='de'||saved==='en') lang=saved;
+  document.querySelectorAll('#langs button').forEach(b=> b.addEventListener('click', ()=>{ lang=b.dataset.lang; try{ localStorage.setItem('navee.lang',lang); }catch(e){} applyLang(); }));
+}
+
+// ---------- theme ----------
+function applyTheme(dark){
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+  const b=$('btn-theme'); if(b){ b.textContent = dark?'☀':'☾'; b.setAttribute('aria-label', t(dark?'themeToLight':'themeToDark')); b.title=b.getAttribute('aria-label'); }
+  try{ localStorage.setItem('navee.theme', dark?'dark':'light'); }catch(e){}
+}
+function initTheme(){
+  let saved=null; try{ saved=localStorage.getItem('navee.theme'); }catch(e){}
+  applyTheme(saved!=='light');
+  const b=$('btn-theme'); if(b) b.addEventListener('click', ()=> applyTheme(document.documentElement.getAttribute('data-theme')==='light'));
+}
+
+// ---------- document viewer ----------
+const DOC_TITLES = {
+  'GUIDE.de.md':'footGuide','GUIDE.en.md':'footGuide',
+  'PRIVACY.de.md':'footPrivacy','PRIVACY.md':'footPrivacy',
+  'LICENSE.de.md':'footLicense','LICENSE.md':'footLicense',
+  'TRADEMARKS.de.md':'footTrademarks','TRADEMARKS.md':'footTrademarks',
+  'README.md':'footReadme',
+};
+const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const slug = s => s.toLowerCase().trim().replace(/[^\w\sÀ-ɏ-]/g,'').replace(/ /g,'-');
+function mdToHtml(src){
+  const inline = s => escHtml(s)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,(all,text,href)=>{
+      if(DOC_TITLES[href]) return `<a href="${href}" data-docfile="${href}">${text}</a>`;
+      if(href.startsWith('#')) return `<a href="${href}" data-anchor="${href.slice(1)}">${text}</a>`;
+      return `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
+    });
+  const lines=String(src).replace(/\r\n?/g,'\n').split('\n');
+  const out=[]; let listKind=null, li=null, para=[], inFence=false;
+  const sink=()=> (li?li.parts:out);
+  const flushPara=()=>{ if(para.length){ sink().push('<p>'+inline(para.join(' '))+'</p>'); para=[]; } };
+  const closeNested=()=>{ if(li&&li.nested){ li.parts.push('</ul>'); li.nested=false; } };
+  const closeLi=()=>{ if(!li) return; flushPara(); closeNested(); out.push('<li>'+li.parts.join('\n')+'</li>'); li=null; };
+  const closeList=()=>{ closeLi(); if(listKind){ out.push('</'+listKind+'>'); listKind=null; } };
+  const block=()=>{ flushPara(); closeList(); };
+  const openList=kind=>{ flushPara(); if(listKind!==kind){ closeList(); out.push('<'+kind+'>'); listKind=kind; } else closeLi(); };
+  const cells=l=> l.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+  for(let i=0;i<lines.length;i++){
+    const l=lines[i], body=l.trim(), indented=/^ {2,}\S/.test(l);
+    if(inFence){ if(body.startsWith('```')){ sink().push('</code></pre>'); inFence=false; } else sink().push(escHtml(l)); continue; }
+    if(body.startsWith('```')){ if(li){ flushPara(); closeNested(); } else block(); sink().push('<pre><code>'); inFence=true; continue; }
+    if(body===''){ if(li && /^ {2,}\S/.test(lines[i+1]||'')) flushPara(); else block(); continue; }
+    if(/^(-{3,}|\*{3,}|_{3,})\s*$/.test(body)){ block(); out.push('<hr>'); continue; }
+    if(body.startsWith('|') && /^\|[\s:|-]+\|?\s*$/.test((lines[i+1]||'').trim())){
+      if(li){ flushPara(); closeNested(); } else block();
+      sink().push('<div class="doc-table"><table><thead><tr>'+cells(body).map(c=>'<th>'+inline(c)+'</th>').join('')+'</tr></thead><tbody>');
+      i++;
+      while(i+1<lines.length && lines[i+1].trim().startsWith('|')) sink().push('<tr>'+cells(lines[++i].trim()).map(c=>'<td>'+inline(c)+'</td>').join('')+'</tr>');
+      sink().push('</tbody></table></div>'); continue;
+    }
+    let m;
+    if((m=body.match(/^(#{1,4})\s+(.*)$/))){ block(); const n=m[1].length; out.push(`<h${n} id="${slug(m[2])}">${inline(m[2])}</h${n}>`); continue; }
+    if((m=body.match(/^>\s?(.*)$/))){ if(li){ flushPara(); closeNested(); } else block(); sink().push('<blockquote>'+inline(m[1])+'</blockquote>'); continue; }
+    if(indented && li && (m=body.match(/^[-*]\s+(.*)$/))){ flushPara(); if(!li.nested){ li.parts.push('<ul class="nested">'); li.nested=true; } li.parts.push('<li>'+inline(m[1])+'</li>'); continue; }
+    if((m=body.match(/^[-*]\s+(.*)$/)) && !indented){ openList('ul'); li={parts:[inline(m[1])],nested:false}; continue; }
+    if((m=body.match(/^\d+\.\s+(.*)$/)) && !indented){ openList('ol'); li={parts:[inline(m[1])],nested:false}; continue; }
+    if(li && !indented) closeList();
+    if(li) closeNested();
+    para.push(body);
+  }
+  if(inFence) sink().push('</code></pre>');
+  block();
+  return out.join('\n').replace(/<pre><code>\n/g,'<pre><code>');
+}
+const docCache={};
+const docFile = name => name==='GUIDE' ? `GUIDE.${lang}.md` : name==='README' ? 'README.md' : (lang==='de' ? `${name}.de.md` : `${name}.md`);
+function openDoc(name,anchor,titleKey){ openDocFile(docFile(name),anchor,titleKey); }
+function openDocFile(file,anchor,titleKey){
+  const dlg=$('doc'), body=$('doc-body'); if(!dlg||!body) return;
+  const mark=(lang==='de' && !file.includes('.de.') && file!=='README.md') ? ' '+t('docEnglish') : '';
+  $('doc-title').textContent=(t(titleKey||DOC_TITLES[file]||'')||file)+mark;
+  if(typeof dlg.showModal==='function') dlg.showModal();
+  const show=html=>{
+    body.innerHTML=html; // scan-ok: html is our own markdown rendered by mdToHtml, which escapes every source char first
+    const h1=body.querySelector('h1'); if(h1){ $('doc-title').textContent=h1.textContent.trim()+mark; h1.remove(); }
+    body.scrollTop=0;
+    if(anchor){ const tgt=body.querySelector('#'+(window.CSS&&CSS.escape?CSS.escape(anchor):anchor)); if(tgt) body.scrollTop=tgt.offsetTop-body.offsetTop; }
+  };
+  if(docCache[file]){ show(docCache[file]); return; }
+  body.innerHTML='<p>'+escHtml(t('docLoading'))+'</p>'; // scan-ok: literal plus escHtml()
+  fetch(file+'?v='+BUILD).then(r=>{ if(!r.ok) throw new Error(r.status+' '+r.statusText); return r.text(); })
+    .then(txt=>{ docCache[file]=mdToHtml(txt); show(docCache[file]); })
+    .catch(e=>{ body.innerHTML='<p>'+escHtml(t('docFail'))+'</p><pre>'+escHtml(file+': '+(e&&e.message?e.message:e))+'</pre>'; }); // scan-ok: literals plus escHtml()
+}
+function wireDocViewer(){
+  document.addEventListener('click', e=>{
+    if(!e.target.closest) return;
+    const jump=e.target.closest('[data-anchor]');
+    if(jump){ e.preventDefault(); const body=$('doc-body'); const tgt=body&&body.querySelector('#'+CSS.escape(jump.getAttribute('data-anchor'))); if(tgt) body.scrollTop=tgt.offsetTop-body.offsetTop; return; }
+    const a=e.target.closest('[data-doc], [data-docfile]'); if(!a) return;
+    e.preventDefault();
+    const file=a.getAttribute('data-docfile'), titleKey=a.getAttribute('data-t')||'';
+    if(file) openDocFile(file,'',titleKey); else openDoc(a.getAttribute('data-doc'),'',titleKey);
+  });
+  ['doc-x','doc-close'].forEach(id=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ const d=$('doc'); if(d) d.close(); }); });
+  const dis=$('link-disclaimer'); if(dis) dis.addEventListener('click', e=>{ e.preventDefault(); const dlg=$('help'); if(!dlg) return; $('help-title').textContent=t('footDisclaimer'); $('help-body').textContent=t('disclaimerText'); if(typeof dlg.showModal==='function') dlg.showModal(); });
+  ['help-x','help-close'].forEach(id=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ const d=$('help'); if(d) d.close(); }); });
+}
+
+wireControls();
+initLang();
+initTheme();
+wireDocViewer();
+applyLang();
+log('NAVEE unlock '+BUILD);
 if(!('bluetooth' in navigator)) log('Web Bluetooth not available - use Chrome (Android/desktop) or Bluefy (iOS).');
