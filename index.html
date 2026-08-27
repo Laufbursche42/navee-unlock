@@ -57,13 +57,13 @@
     <p class="hint"><b>Read status</b> first to see the current max speed and region. Then <b>Scan</b> tries the region values, reads the resulting max speed after each, and fills the best one in here - press <b>Unlock</b> to apply it.</p>
     <div class="row">
       <label class="full">Direct speed (km/h)</label>
-      <input id="speed-in" type="number" inputmode="numeric" min="0" max="60" placeholder="e.g. 32" disabled>
+      <input id="speed-in" type="number" inputmode="numeric" min="0" max="255" placeholder="e.g. 32 - any value allowed" disabled>
     </div>
     <div class="btns">
       <button class="primary" id="btn-setspeed" disabled>Set max speed (0x6E)</button>
       <button id="btn-setlimit" disabled>Set limit (0x6B)</button>
     </div>
-    <p class="hint">These write the speed directly, the same commands the official app's own Max-speed and Speed-limit screens use, without the region detour. For an XT5 the app itself allows up to 32 km/h; higher values depend on what the firmware accepts.</p>
+    <p class="hint">These write the speed directly, the same commands the official app's own Max-speed and Speed-limit screens use, without the region detour. You can enter <b>any</b> value here, not just the ones the app offers: <b>Set max speed</b> sends the raw byte (0-255) via 0x6E, <b>Set limit</b> sends it via 0x6B (0-127, limit-on bit set). For an XT5 the app itself only goes up to 32 km/h; whether the firmware accepts higher values is exactly what the hardware test shows.</p>
     <details>
       <summary>Advanced</summary>
       <p class="hint">The connection uses an auto-generated account id, so you normally leave this empty. Fill it only if the scooter refuses to connect (then use the owner's account id). Or paste a captured connect handshake to replay it.</p>
