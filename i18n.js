@@ -10,9 +10,8 @@ window.I18N = {
 
     s1Title: "So fängst du an",
     sub: "Live über Web Bluetooth mit deinem NAVEE-Scooter reden. Läuft in Chrome (Android/Desktop) oder Bluefy (iOS). Nichts verlässt dein Gerät.",
-    feasib: "Machbarkeitsstudie: Diese Seite zeigt, was das Bluetooth-Protokoll eines NAVEE-Rollers technisch möglich macht, sie ist kein fertiges Produkt. Fehlerfreier Betrieb wird nicht versprochen, es gibt keinerlei Gewährleistung. Alles, was du hier tust, tust du auf eigenes Risiko.",
     startHintGuide: "Neu hier? In der <a href=\"GUIDE.de.md\" data-doc=\"GUIDE\" data-t=\"footGuide\">Anleitung</a> steht jeder Schritt.",
-    expWarn: "<b>Experimentell.</b> Ob der Controller einen erhöhten Wert übernimmt oder selbst abriegelt, ist noch nicht bestätigt. Genau das soll dieser Test klären. Alles hier stammt aus statischer Analyse der App, nicht aus dem Fahrzeug. Probleme oder Fehler beim Testen bitte per DM an <a href=\"https://www.escooter-stammtisch.de/index.php?user/6497-laufbursche/\" target=\"_blank\" rel=\"noopener\">Laufbursche im escooter-stammtisch</a> oder als <a href=\"https://github.com/Laufbursche42/navee-unlock/issues\" target=\"_blank\" rel=\"noopener\">GitHub-Issue</a> melden.",
+    expWarn: "Machbarkeitsstudie: Diese Seite zeigt, was das Bluetooth-Protokoll eines NAVEE-Scooters technisch möglich macht, sie ist kein fertiges Produkt. Fehlerfreier Betrieb wird nicht versprochen, es gibt keinerlei Gewährleistung. Alles, was du hier tust, tust du auf eigenes Risiko. <a href=\"#\" data-open-disclaimer>Haftungsausschluss lesen</a>. Probleme oder Fehler beim Testen bitte per DM an <a href=\"https://www.escooter-stammtisch.de/index.php?user/6497-laufbursche/\" target=\"_blank\" rel=\"noopener\">Laufbursche im escooter-stammtisch</a> oder als <a href=\"https://github.com/Laufbursche42/navee-unlock/issues\" target=\"_blank\" rel=\"noopener\">GitHub-Issue</a> melden.",
     ownDevice: "Nur am eigenen Fahrzeug auf privatem Gelände. Das Anheben der Höchstgeschwindigkeit hebt die Drossel auf, die ABE erlischt und der Betrieb auf öffentlichen Wegen ist dann nicht erlaubt.",
 
     s2Title: "Verbindung",
@@ -89,9 +88,8 @@ window.I18N = {
 
     s1Title: "Getting started",
     sub: "Talk to your NAVEE scooter live over Web Bluetooth. Runs in Chrome (Android/desktop) or Bluefy (iOS). Nothing leaves your device.",
-    feasib: "Feasibility study: this page shows what a NAVEE scooter's Bluetooth protocol makes technically possible, it is not a finished product. Error-free operation is not promised, there is no warranty whatsoever. Everything you do here you do at your own risk.",
     startHintGuide: "New here? Every step is in the <a href=\"GUIDE.en.md\" data-doc=\"GUIDE\" data-t=\"footGuide\">guide</a>.",
-    expWarn: "<b>Experimental.</b> Whether the controller accepts a raised value or caps it on its own is not confirmed yet. That is exactly what this test is meant to clarify. Everything here comes from static analysis of the app, not from the vehicle. Report problems or errors during testing by DM to <a href=\"https://www.escooter-stammtisch.de/index.php?user/6497-laufbursche/\" target=\"_blank\" rel=\"noopener\">Laufbursche on escooter-stammtisch</a> or open a <a href=\"https://github.com/Laufbursche42/navee-unlock/issues\" target=\"_blank\" rel=\"noopener\">GitHub issue</a>.",
+    expWarn: "Feasibility study: this page shows what the Bluetooth protocol of a NAVEE scooter makes possible, it is not a finished product. Error-free operation is not promised and there is no warranty of any kind. Whatever you do here, you do at your own risk. <a href=\"#\" data-open-disclaimer>Read the disclaimer</a>. Report problems or errors during testing by DM to <a href=\"https://www.escooter-stammtisch.de/index.php?user/6497-laufbursche/\" target=\"_blank\" rel=\"noopener\">Laufbursche on escooter-stammtisch</a> or open a <a href=\"https://github.com/Laufbursche42/navee-unlock/issues\" target=\"_blank\" rel=\"noopener\">GitHub issue</a>.",
     ownDevice: "Only on your own vehicle on private ground. Raising the top speed removes the throttle limit, the road approval lapses and operating it on public roads is then not allowed.",
 
     s2Title: "Connection",

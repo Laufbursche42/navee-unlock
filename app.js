@@ -431,6 +431,7 @@ function wireHelp(){
   document.querySelectorAll('.help-btn').forEach(b=> b.addEventListener('click', ()=> openHelp(b.getAttribute('data-help'))));
   ['help-x','help-close'].forEach(id=>{ const b=$(id); if(b) b.addEventListener('click', closeHelp); });
   const dis=$('link-disclaimer'); if(dis) dis.addEventListener('click', e=>{ e.preventDefault(); openHelp('disclaimer'); });
+  document.addEventListener('click', e=>{ if(e.target.closest && e.target.closest('[data-open-disclaimer]')){ e.preventDefault(); openHelp('disclaimer'); } });
 }
 
 wireControls();
