@@ -65,7 +65,7 @@ pre#log{background:#080a0e;border:1px solid var(--border);border-radius:10px;pad
 .foot{display:flex;flex-direction:column;gap:8px;align-items:center}
 
 /* --- document + help dialog --- */
-dialog{border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);padding:0;max-width:640px;width:calc(100% - 32px)}
+dialog{margin:auto;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);padding:0;max-width:640px;width:calc(100% - 32px)}
 dialog::backdrop{background:rgba(0,0,0,.6)}
 #doc,#help{max-height:88vh;overflow:hidden}
 #doc[open],#help[open]{display:flex;flex-direction:column}
@@ -103,3 +103,11 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 }
 :root[data-theme="light"] .langs button[aria-pressed="true"]{color:#fff}
 :root[data-theme="light"] .doc-body pre,:root[data-theme="light"] pre#log{background:#eef1f6}
+
+/* --- help buttons (? -> modal) --- */
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.card-head h2{margin-bottom:0}
+.help-btn{flex:0 0 auto;width:22px;height:22px;min-width:22px;padding:0;border-radius:50%;font-size:13px;font-weight:700;line-height:1;color:var(--label);display:inline-flex;align-items:center;justify-content:center}
+.help-btn:hover{color:var(--accent);border-color:var(--accent)}
+#help{max-width:520px}
+#help #help-body{margin:0}

@@ -11,7 +11,7 @@ window.I18N = {
     s1Title: "So fängst du an",
     sub: "Live über Web Bluetooth mit deinem NAVEE-Scooter reden. Läuft in Chrome (Android/Desktop) oder Bluefy (iOS). Nichts verlässt dein Gerät.",
     startHintGuide: "Neu hier? In der <a href=\"GUIDE.de.md\" data-doc=\"GUIDE\" data-t=\"footGuide\">Anleitung</a> steht jeder Schritt.",
-    expWarn: "Experimentell: Ob der Controller einen erhöhten Wert übernimmt oder selbst abriegelt, ist noch nicht am Gerät bestätigt. Genau das soll der Test klären. Alles hier stammt aus statischer Analyse der App 2.1.6, nicht aus dem Fahrzeug.",
+    expWarn: "Experimentell: Ob der Controller einen erhöhten Wert übernimmt oder selbst abriegelt, ist noch nicht am Gerät bestätigt. Genau das soll der Test klären. Alles hier stammt aus statischer Analyse der offiziellen App, nicht aus dem Fahrzeug.",
     ownDevice: "Nur am eigenen Fahrzeug auf privatem Gelände. Das Anheben der Höchstgeschwindigkeit hebt die Drossel auf, die ABE erlischt und der Betrieb auf öffentlichen Wegen ist dann nicht erlaubt.",
 
     s2Title: "Verbindung",
@@ -45,6 +45,13 @@ window.I18N = {
     advHint: "Die Verbindung nutzt eine zufällige Konto-ID, das Feld bleibt normalerweise leer. Nur ausfüllen, wenn der Scooter die Verbindung verweigert (dann die Konto-ID des Besitzers). Oder einen mitgeschnittenen Auth-Frame als Hex einfügen.",
     uidPlaceholder: "Konto-ID (optional)",
     authhexPlaceholder: "oder Auth-Frame als Hex einfügen",
+
+    speedHelp: "Trage die gewünschte Geschwindigkeit in km/h ein. Mit 'Max-Speed setzen' geht sie als Maximalgeschwindigkeit an den Scooter (Befehl 0x6E), mit 'Limit setzen' als Custom-Limit (0x6B). Beide nutzen denselben eingetragenen Wert. Welche Werte tatsächlich greifen, hängt vom Modell und der Firmware ab, also ruhig ausprobieren und danach den Status lesen.",
+    countryHelp: "Der Ländercode ist eine interne Nummer für die Region beziehungsweise SKU, ungefähr im Bereich 0 bis 25. Du musst ihn nicht kennen: Drück 'Werte durchprobieren', dann setzt die Seite die Codes der Reihe nach, liest jeweils die Max-Speed zurück und trägt den besten hier ein. Nur wenn du einen passenden Code schon kennst, tippst du ihn direkt ein und drückst 'Region schreiben'.",
+    accountTitle: "Konto-ID",
+    accountHelp: "Beim Verbinden schickt die App eine Konto-ID als Kennung im Auth-Handshake mit. Die Seite erzeugt dafür automatisch eine zufällige ID, die in aller Regel funktioniert, deshalb bleibt das Feld normalerweise leer. Nur falls sich der Scooter partout nicht verbinden lässt, trägst du hier die echte Konto-ID des Besitzers ein. Die findest du in der offiziellen NAVEE-App unter deinem Benutzerkonto.",
+    authhexTitle: "Auth-Frame (Hex)",
+    authhexHelp: "Eine Option für Fortgeschrittene. Wenn du den Verbindungs-Handshake der offiziellen App mitgeschnitten hast, zum Beispiel mit einem BLE-Sniffer oder der App nRF Connect, kannst du den 0x30-Auth-Frame hier als Hex einfügen. Die Seite spielt ihn dann genau so ab, statt selbst einen zu bauen. Normale Nutzer lassen das Feld leer.",
 
     s6Title: "Protokoll-Log",
     btnCopyLog: "Log kopieren",
@@ -116,6 +123,13 @@ window.I18N = {
     advHint: "The connection uses a random account id, so you normally leave this empty. Fill it only if the scooter refuses to connect (then use the owner's account id). Or paste a captured auth frame as hex.",
     uidPlaceholder: "account id (optional)",
     authhexPlaceholder: "or paste an auth frame as hex",
+
+    speedHelp: "Type the speed you want in km/h. 'Set max speed' sends it as the maximum speed (command 0x6E), 'Set limit' sends it as the custom limit (0x6B). Both use the same value you typed. Which values actually take depends on the model and its firmware, so try it and read the status afterwards.",
+    countryHelp: "The country value is an internal number for the region or SKU, roughly in the range 0 to 25. You do not need to know it: press 'Scan values' and the page tries the codes in turn, reads the resulting max speed each time and fills in the best one here. Only if you already know a matching code, type it and press 'Write region'.",
+    accountTitle: "Account id",
+    accountHelp: "When connecting, the app sends an account id as a tag in the auth handshake. The page generates a random one automatically, which works in almost all cases, so you normally leave this field empty. Only if the scooter refuses to connect, enter the owner's real account id here. You find it in the official NAVEE app under your user account.",
+    authhexTitle: "Auth frame (hex)",
+    authhexHelp: "An option for advanced users. If you captured the official app's connect handshake, for example with a BLE sniffer or the nRF Connect app, you can paste the 0x30 auth frame here as hex. The page then replays it exactly instead of building its own. Normal users leave this empty.",
 
     s6Title: "Protocol log",
     btnCopyLog: "Copy log",

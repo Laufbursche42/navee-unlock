@@ -62,7 +62,7 @@
   </div>
 
   <div class="card">
-    <h2 data-t="s3Title"></h2>
+    <div class="card-head"><h2 data-t="s3Title"></h2><button type="button" class="help-btn" data-help="speed" aria-label="Info">?</button></div>
     <div class="row">
       <label class="full" data-t="lblSpeed"></label>
       <input id="speed-in" type="number" inputmode="numeric" min="0" max="255" placeholder="32" disabled>
@@ -75,7 +75,7 @@
   </div>
 
   <div class="card">
-    <h2 data-t="s4Title"></h2>
+    <div class="card-head"><h2 data-t="s4Title"></h2><button type="button" class="help-btn" data-help="country" aria-label="Info">?</button></div>
     <div class="row">
       <label class="full" data-t="lblCountry"></label>
       <input id="country-in" type="number" inputmode="numeric" min="0" max="255" placeholder="0-25" disabled>
@@ -89,10 +89,12 @@
       <summary data-t="advTitle"></summary>
       <p class="hint" data-t="advHint"></p>
       <div class="row">
-        <input id="uid-in" type="number" inputmode="numeric" class="full" data-t-ph="uidPlaceholder">
+        <input id="uid-in" type="number" inputmode="numeric" data-t-ph="uidPlaceholder">
+        <button type="button" class="help-btn" data-help="account" aria-label="Info">?</button>
       </div>
       <div class="row">
-        <input id="authhex-in" class="full" autocapitalize="off" autocomplete="off" spellcheck="false" data-t-ph="authhexPlaceholder">
+        <input id="authhex-in" autocapitalize="off" autocomplete="off" spellcheck="false" data-t-ph="authhexPlaceholder">
+        <button type="button" class="help-btn" data-help="authhex" aria-label="Info">?</button>
       </div>
     </details>
   </div>

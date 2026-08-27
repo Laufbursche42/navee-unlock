@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v2 (verified vs app 2.1.6)';
+const BUILD = 'v2';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
@@ -415,14 +415,29 @@ function wireDocViewer(){
     if(file) openDocFile(file,'',titleKey); else openDoc(a.getAttribute('data-doc'),'',titleKey);
   });
   ['doc-x','doc-close'].forEach(id=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ const d=$('doc'); if(d) d.close(); }); });
-  const dis=$('link-disclaimer'); if(dis) dis.addEventListener('click', e=>{ e.preventDefault(); const dlg=$('help'); if(!dlg) return; $('help-title').textContent=t('footDisclaimer'); $('help-body').textContent=t('disclaimerText'); if(typeof dlg.showModal==='function') dlg.showModal(); });
-  ['help-x','help-close'].forEach(id=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ const d=$('help'); if(d) d.close(); }); });
+}
+
+// ---------- help modal ----------
+const HELP = {
+  speed:   ['s3Title', 'speedHelp'],
+  country: ['s4Title', 'countryHelp'],
+  account: ['accountTitle', 'accountHelp'],
+  authhex: ['authhexTitle', 'authhexHelp'],
+  disclaimer: ['footDisclaimer', 'disclaimerText'],
+};
+function openHelp(key){ const m=HELP[key]; if(!m) return; const dlg=$('help'); if(!dlg) return; $('help-title').textContent=t(m[0]); $('help-body').textContent=t(m[1]); if(typeof dlg.showModal==='function') dlg.showModal(); }
+function closeHelp(){ const d=$('help'); if(d&&d.close) d.close(); }
+function wireHelp(){
+  document.querySelectorAll('.help-btn').forEach(b=> b.addEventListener('click', ()=> openHelp(b.getAttribute('data-help'))));
+  ['help-x','help-close'].forEach(id=>{ const b=$(id); if(b) b.addEventListener('click', closeHelp); });
+  const dis=$('link-disclaimer'); if(dis) dis.addEventListener('click', e=>{ e.preventDefault(); openHelp('disclaimer'); });
 }
 
 wireControls();
 initLang();
 initTheme();
 wireDocViewer();
+wireHelp();
 applyLang();
 log('NAVEE unlock '+BUILD);
 if(!('bluetooth' in navigator)) log('Web Bluetooth not available - use Chrome (Android/desktop) or Bluefy (iOS).');
