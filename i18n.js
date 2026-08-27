@@ -10,6 +10,7 @@ window.I18N = {
 
     s1Title: "So fängst du an",
     sub: "Live über Web Bluetooth mit deinem NAVEE-Scooter reden. Läuft in Chrome (Android/Desktop) oder Bluefy (iOS). Nichts verlässt dein Gerät.",
+    feasib: "Machbarkeitsstudie: Diese Seite zeigt, was das Bluetooth-Protokoll eines NAVEE-Rollers technisch möglich macht, sie ist kein fertiges Produkt. Fehlerfreier Betrieb wird nicht versprochen, es gibt keinerlei Gewährleistung. Alles, was du hier tust, tust du auf eigenes Risiko.",
     startHintGuide: "Neu hier? In der <a href=\"GUIDE.de.md\" data-doc=\"GUIDE\" data-t=\"footGuide\">Anleitung</a> steht jeder Schritt.",
     expWarn: "Experimentell: Ob der Controller einen erhöhten Wert übernimmt oder selbst abriegelt, ist noch nicht am Gerät bestätigt. Genau das soll der Test klären. Alles hier stammt aus statischer Analyse der offiziellen App, nicht aus dem Fahrzeug.",
     ownDevice: "Nur am eigenen Fahrzeug auf privatem Gelände. Das Anheben der Höchstgeschwindigkeit hebt die Drossel auf, die ABE erlischt und der Betrieb auf öffentlichen Wegen ist dann nicht erlaubt.",
@@ -88,6 +89,7 @@ window.I18N = {
 
     s1Title: "Getting started",
     sub: "Talk to your NAVEE scooter live over Web Bluetooth. Runs in Chrome (Android/desktop) or Bluefy (iOS). Nothing leaves your device.",
+    feasib: "Feasibility study: this page shows what a NAVEE scooter's Bluetooth protocol makes technically possible, it is not a finished product. Error-free operation is not promised, there is no warranty whatsoever. Everything you do here you do at your own risk.",
     startHintGuide: "New here? Every step is in the <a href=\"GUIDE.en.md\" data-doc=\"GUIDE\" data-t=\"footGuide\">guide</a>.",
     expWarn: "Experimental: whether the controller accepts a raised value or caps it on its own is not confirmed on hardware yet. That is exactly what the test is meant to clarify. Everything here comes from static analysis of app 2.1.6, not from the vehicle.",
     ownDevice: "Only on your own vehicle on private ground. Raising the top speed removes the throttle limit, the road approval lapses and operating it on public roads is then not allowed.",
