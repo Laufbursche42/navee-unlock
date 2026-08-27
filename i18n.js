@@ -26,8 +26,7 @@ window.I18N = {
     tileMax: "Max-Speed",
     tileLimit: "Limit",
     serialLabel: "Seriennummer:",
-    btnRead: "Status lesen",
-    liveHint: "Zuerst Status lesen, dann siehst du Region, SKU, Max- und Limit-Geschwindigkeit sowie die Seriennummer. Die rohen Meldungen stehen zusätzlich als Hex im Log.",
+    liveHint: "Region, SKU, Max- und Limit-Geschwindigkeit sowie die Seriennummer werden nach dem Verbinden automatisch gelesen. Die rohen Meldungen stehen als Hex im Log.",
 
     lblLock: "Wegfahrsperre",
     optLocked: "Gesperrt",
@@ -42,7 +41,7 @@ window.I18N = {
     drHelp: "Die Seite schreibt die Höchstgeschwindigkeit (Befehl 0x6E). Entsperren setzt sie auf den offenen Wert, Sperren auf den gedrosselten. Beide Werte trägst du oben ein, der Browser merkt sie sich. Der Knopf zeigt die nächste sinnvolle Aktion, abgeleitet aus der zuletzt gelesenen Höchstgeschwindigkeit. Unterschied zu den App-Werten: Die App kennt zwei Dinge. Die Höchstgeschwindigkeit ist die echte Obergrenze, wie schnell der Scooter überhaupt fährt, das ist der Hebel zum Drosseln und Öffnen. Daneben gibt es ein Custom-Limit (0x6B), einen selbst gesetzten Deckel unterhalb der Höchstgeschwindigkeit, zum Beispiel für Anfänger. Fürs Sperren und Entsperren nutzen wir die Höchstgeschwindigkeit.",
 
     moreTitle: "Weitere Einstellungen",
-    moreEmpty: "Erst Status lesen, dann erscheinen hier nur die Einstellungen, die dein Scooter tatsächlich unterstützt.",
+    moreEmpty: "Nach dem Verbinden erscheinen hier nur die Einstellungen, die dein Scooter tatsächlich unterstützt.",
     btnSend: "Setzen",
     optOn: "An",
     optOff: "Aus",
@@ -62,7 +61,7 @@ window.I18N = {
     lblUnit: "Einheit",
     lblProx: "Näherungsschlüssel",
     moreHint: "Diese Schalter entsprechen den Einstellungen der offiziellen App, byte-genau. Jeder wirkt sofort. Nicht jedes Modell unterstützt jeden Schalter, dann passiert nichts.",
-    moreHelp: "Alle Schalter hier senden denselben Befehl wie der jeweilige App-Screen. Zero-Start An heißt, der Motor zieht schon aus dem Stand per Gasgriff, Aus bedeutet erst anschieben. Übertempo-Kontrolle (OSC) ist ein aktiver Begrenzer, aus hebt ihn auf. Traktionskontrolle, Steigungshilfe, Tempomat, Long-Range, Rücklicht, Auto-Licht, Blinkerton, Einheit und Näherungsschlüssel schalten die jeweilige Funktion. Welche Werte dein Modell übernimmt, hängt von Modell und Firmware ab, also ruhig prüfen und danach den Status lesen.",
+    moreHelp: "Alle Schalter hier senden denselben Befehl wie der jeweilige App-Screen. Zero-Start An heißt, der Motor zieht schon aus dem Stand per Gasgriff, Aus bedeutet erst anschieben. Übertempo-Kontrolle (OSC) ist ein aktiver Begrenzer, aus hebt ihn auf. Traktionskontrolle, Steigungshilfe, Tempomat, Long-Range, Rücklicht, Auto-Licht, Blinkerton, Einheit und Näherungsschlüssel schalten die jeweilige Funktion. Welche Werte dein Modell übernimmt, hängt von Modell und Firmware ab, also ruhig prüfen was am Scooter passiert.",
 
     s4Title: "Region-Weg (SKU)",
     lblCountry: "Ländercode",
@@ -75,7 +74,6 @@ window.I18N = {
     uidPlaceholder: "Konto-ID (optional)",
     authhexPlaceholder: "oder Auth-Frame als Hex einfügen",
 
-    speedHelp: "Trage die gewünschte Geschwindigkeit in km/h ein. Mit 'Max-Speed setzen' geht sie als Maximalgeschwindigkeit an den Scooter (Befehl 0x6E), mit 'Limit setzen' als Custom-Limit (0x6B). Beide nutzen denselben eingetragenen Wert. Welche Werte tatsächlich greifen, hängt vom Modell und der Firmware ab, also ruhig ausprobieren und danach den Status lesen.",
     countryHelp: "Der Ländercode ist eine interne Nummer für die Region beziehungsweise SKU, ungefähr im Bereich 0 bis 25. Du musst ihn nicht kennen: Drück 'Werte durchprobieren', dann setzt die Seite die Codes der Reihe nach, liest jeweils die Max-Speed zurück und trägt den besten hier ein. Nur wenn du einen passenden Code schon kennst, tippst du ihn direkt ein und drückst 'Region schreiben'.",
     accountTitle: "Konto-ID",
     accountHelp: "Beim Verbinden schickt die App eine Konto-ID als Kennung im Auth-Handshake mit. Die Seite erzeugt dafür automatisch eine zufällige ID, die in aller Regel funktioniert, deshalb bleibt das Feld normalerweise leer. Nur falls sich der Scooter partout nicht verbinden lässt, trägst du hier die echte Konto-ID des Besitzers ein. Die findest du in der offiziellen NAVEE-App unter deinem Benutzerkonto.",
@@ -133,8 +131,7 @@ window.I18N = {
     tileMax: "Max speed",
     tileLimit: "Limit",
     serialLabel: "Serial:",
-    btnRead: "Read status",
-    liveHint: "Read status first to see region, SKU, max and limit speed and the serial. The raw messages are also logged as hex.",
+    liveHint: "Region, SKU, max and limit speed and the serial are read automatically after connecting. The raw messages are logged as hex.",
 
     lblLock: "Immobilizer",
     optLocked: "Locked",
@@ -149,7 +146,7 @@ window.I18N = {
     drHelp: "The page writes the top speed (command 0x6E). Unlock sets it to the open value, Lock to the throttled one. You enter both values above and the browser remembers them. The button shows the next sensible action, derived from the last top speed read. Difference to the app values: the app has two things. The top speed is the real ceiling, how fast the scooter goes at all, that is the lever for throttling and opening. There is also a custom limit (0x6B), a self-set cap below the top speed, for example for a beginner. For lock and unlock we use the top speed.",
 
     moreTitle: "More settings",
-    moreEmpty: "Read status first, then only the settings your scooter actually supports show up here.",
+    moreEmpty: "After connecting, only the settings your scooter actually supports show up here.",
     btnSend: "Set",
     optOn: "On",
     optOff: "Off",
@@ -169,7 +166,7 @@ window.I18N = {
     lblUnit: "Unit",
     lblProx: "Proximity key",
     moreHint: "These switches mirror the official app's settings, byte-exact. Each takes effect immediately. Not every model supports every switch; then nothing happens.",
-    moreHelp: "Every switch here sends the same command as the matching app screen. Zero-start on means the motor pulls from a standstill via the throttle, off means you push first. Overspeed control (OSC) is an active limiter; off removes it. Traction control, slope assist, cruise control, long-range, tail light, auto light, turn-signal sound, unit and proximity key toggle the respective function. Which values your model accepts depends on model and firmware, so check and read the status afterwards.",
+    moreHelp: "Every switch here sends the same command as the matching app screen. Zero-start on means the motor pulls from a standstill via the throttle, off means you push first. Overspeed control (OSC) is an active limiter; off removes it. Traction control, slope assist, cruise control, long-range, tail light, auto light, turn-signal sound, unit and proximity key toggle the respective function. Which values your model accepts depends on model and firmware, so check what happens on the scooter.",
 
     s4Title: "Region route (SKU)",
     lblCountry: "Country value",
@@ -182,7 +179,6 @@ window.I18N = {
     uidPlaceholder: "account id (optional)",
     authhexPlaceholder: "or paste an auth frame as hex",
 
-    speedHelp: "Type the speed you want in km/h. 'Set max speed' sends it as the maximum speed (command 0x6E), 'Set limit' sends it as the custom limit (0x6B). Both use the same value you typed. Which values actually take depends on the model and its firmware, so try it and read the status afterwards.",
     countryHelp: "The country value is an internal number for the region or SKU, roughly in the range 0 to 25. You do not need to know it: press 'Scan values' and the page tries the codes in turn, reads the resulting max speed each time and fills in the best one here. Only if you already know a matching code, type it and press 'Write region'.",
     accountTitle: "Account id",
     accountHelp: "When connecting, the app sends an account id as a tag in the auth handshake. The page generates a random one automatically, which works in almost all cases, so you normally leave this field empty. Only if the scooter refuses to connect, enter the owner's real account id here. You find it in the official NAVEE app under your user account.",
