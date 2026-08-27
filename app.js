@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v6';
+const BUILD = 'v7';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
@@ -304,6 +304,7 @@ function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(
 
 function refreshButtons(){
   const on=connected;
+  { const c=$('btn-conn'); if(c) c.textContent = on ? t('btnDisconnect') : t('btnConnect'); }
   $('btn-read').disabled=!on; $('btn-unlock').disabled=!on; $('btn-scan').disabled=!on; $('country-in').disabled=!on;
   { const t=$('btn-locktoggle'); if(t){ t.disabled=!on; $('open-in').disabled=!on; $('locked-in').disabled=!on; } }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
@@ -344,8 +345,7 @@ function copyLog(){ const el=$('log'); if(!el) return; navigator.clipboard && na
 function clearLog(){ const el=$('log'); if(el) el.textContent=''; }
 
 function wireControls(){
-  $('btn-connect').addEventListener('click', connect);
-  $('btn-disconnect').addEventListener('click', disconnect);
+  $('btn-conn').addEventListener('click', ()=> connected ? disconnect() : connect());
   $('btn-read').addEventListener('click', readStatus);
   $('btn-unlock').addEventListener('click', ()=> writeCountry(parseInt($('country-in').value||'0',10)||0));
   $('btn-scan').addEventListener('click', scan);
@@ -374,6 +374,7 @@ function applyLang(){
   const st=$('status'); if(st) setStatus(st.dataset.state||'disconnected');
   const th=$('btn-theme'); if(th){ const dark=document.documentElement.getAttribute('data-theme')!=='light'; th.setAttribute('aria-label', t(dark?'themeToLight':'themeToDark')); th.title=th.getAttribute('aria-label'); }
   updateToggle();
+  refreshButtons();
 }
 function initLang(){
   let saved=null; try{ saved=localStorage.getItem('navee.lang'); }catch(e){}
