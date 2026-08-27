@@ -10,7 +10,7 @@ window.I18N = {
 
     s1Title: "So fängst du an",
     sub: "Live über Web Bluetooth mit deinem NAVEE-Scooter reden. Läuft in Chrome (Android/Desktop) oder Bluefy (iOS). Nichts verlässt dein Gerät.",
-    startHintGuide: "Neu hier? Die vollständige Anleitung ist unten im Fuß der Seite verlinkt.",
+    startHintGuide: "Neu hier? In der <a href=\"GUIDE.de.md\" data-doc=\"GUIDE\" data-t=\"footGuide\">Anleitung</a> steht jeder Schritt.",
     expWarn: "Experimentell: Ob der Controller einen erhöhten Wert übernimmt oder selbst abriegelt, ist noch nicht am Gerät bestätigt. Genau das soll der Test klären. Alles hier stammt aus statischer Analyse der App 2.1.6, nicht aus dem Fahrzeug.",
     ownDevice: "Nur am eigenen Fahrzeug auf privatem Gelände. Das Anheben der Höchstgeschwindigkeit hebt die Drossel auf, die ABE erlischt und der Betrieb auf öffentlichen Wegen ist dann nicht erlaubt.",
 
@@ -81,7 +81,7 @@ window.I18N = {
 
     s1Title: "Getting started",
     sub: "Talk to your NAVEE scooter live over Web Bluetooth. Runs in Chrome (Android/desktop) or Bluefy (iOS). Nothing leaves your device.",
-    startHintGuide: "New here? The full guide is linked in the footer below.",
+    startHintGuide: "New here? Every step is in the <a href=\"GUIDE.en.md\" data-doc=\"GUIDE\" data-t=\"footGuide\">guide</a>.",
     expWarn: "Experimental: whether the controller accepts a raised value or caps it on its own is not confirmed on hardware yet. That is exactly what the test is meant to clarify. Everything here comes from static analysis of app 2.1.6, not from the vehicle.",
     ownDevice: "Only on your own vehicle on private ground. Raising the top speed removes the throttle limit, the road approval lapses and operating it on public roads is then not allowed.",
 

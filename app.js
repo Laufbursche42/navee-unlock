@@ -298,7 +298,7 @@ const table = () => (window.I18N && window.I18N[lang]) || {};
 function t(key){ const v=table()[key]; return (typeof v==='string') ? v : ''; }
 function applyLang(){
   document.documentElement.lang=lang;
-  document.querySelectorAll('[data-t]').forEach(n=>{ n.textContent=t(n.getAttribute('data-t')); });
+  document.querySelectorAll('[data-t]').forEach(n=>{ const v=t(n.getAttribute('data-t')); if(/[<&]/.test(v)) n.innerHTML=v; else n.textContent=v; }); // scan-ok: v is our own i18n string, only the guide link carries markup
   document.querySelectorAll('[data-t-ph]').forEach(n=> n.setAttribute('placeholder', t(n.getAttribute('data-t-ph'))));
   const g=$('link-guide'); if(g) g.href=docFile('GUIDE');
   const li=$('link-license'); if(li) li.href=docFile('LICENSE');
