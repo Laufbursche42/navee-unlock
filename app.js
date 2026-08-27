@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v3';
+const BUILD = 'v4';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
@@ -95,7 +95,10 @@ function parseHexFrame(s){
 }
 
 // ---------- BLE ----------
-let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0;
+let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false;
+// Read status once, automatically, right after authentication so the live values and the
+// model-specific settings appear without the user pressing Read.
+function autoRead(){ if(autoReadDone) return; autoReadDone=true; setTimeout(()=>{ if(authed) readStatus(); }, 500); }
 let waiters=[];   // resolve on next report of a given cmd
 function waitReport(cmd, ms=3000){
   return new Promise(res=>{ const w={cmd,res}; waiters.push(w); setTimeout(()=>{ waiters=waiters.filter(x=>x!==w); res(null); }, ms); });
@@ -138,12 +141,12 @@ async function handleFrame(f){
       log('auth challenge received, responding (key '+curKeyIdx+')');
       await sendFrame(await authRespFrame(challenge, curKeyIdx));
     } else {                               // short ack = session already up
-      authed=true; setStatus('connected'); refreshButtons(); log('authenticated (ack)');
+      authed=true; setStatus('connected'); refreshButtons(); log('authenticated (ack)'); autoRead();
     }
     return;
   }
   if(cmd===CMD.AUTH_RESP){                  // 0x31 result
-    if(err===0){ authed=true; setStatus('connected'); refreshButtons(); log('authenticated'); }
+    if(err===0){ authed=true; setStatus('connected'); refreshButtons(); log('authenticated'); autoRead(); }
     else log('auth response rejected, code '+err);
     return;
   }
@@ -204,7 +207,7 @@ async function connect(){
     notifyCh=await svc.getCharacteristic(NOTIFY_CHAR);
     await notifyCh.startNotifications();
     notifyCh.addEventListener('characteristicvaluechanged', onNotify);
-    connected=true; authed=false; setStatus('connected');
+    connected=true; authed=false; autoReadDone=false; setStatus('connected');
     log('connected to '+(device.name||device.id)); refreshButtons();
     await sleep(150); await authenticate();
   }catch(e){ setStatus('error'); log('connect failed: '+e.message); }
@@ -281,12 +284,13 @@ async function scan(){
   else log('scan: no readable maxSpeed - check the raw report bytes in the log');
 }
 
-function onDisconnect(){ connected=false; authed=false; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); }
+function onDisconnect(){ connected=false; authed=false; autoReadDone=false; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); }
 function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(); }
 
 function refreshButtons(){
   const on=connected;
   $('btn-read').disabled=!on; $('btn-unlock').disabled=!on; $('btn-scan').disabled=!on; $('country-in').disabled=!on;
+  { const l=$('btn-lock'), u=$('btn-unlockcar'); if(l) l.disabled=!on; if(u) u.disabled=!on; }
   const sp=$('btn-setspeed'); if(sp){ sp.disabled=!on; $('btn-setlimit').disabled=!on; $('speed-in').disabled=!on; }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
 }
@@ -332,6 +336,8 @@ function wireControls(){
   $('btn-scan').addEventListener('click', scan);
   $('btn-setspeed').addEventListener('click', ()=> writeMaxSpeed(parseInt($('speed-in').value||'0',10)||0));
   $('btn-setlimit').addEventListener('click', ()=> writeLimitSpeed(parseInt($('speed-in').value||'0',10)||0, true));
+  { const b=$('btn-lock'); if(b) b.addEventListener('click', ()=> writeToggle(0x51, 1)); }
+  { const b=$('btn-unlockcar'); if(b) b.addEventListener('click', ()=> writeToggle(0x51, 0)); }
   SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=> s.send(parseInt($(s.sel).value||'0',10)||0)); });
   $('btn-copy-log').addEventListener('click', copyLog);
   $('btn-clear-log').addEventListener('click', clearLog);
@@ -464,6 +470,7 @@ function wireDocViewer(){
 
 // ---------- help modal ----------
 const HELP = {
+  lock:    ['lockTitle', 'lockHelp'],
   speed:   ['s3Title', 'speedHelp'],
   more:    ['moreTitle', 'moreHelp'],
   country: ['s4Title', 'countryHelp'],

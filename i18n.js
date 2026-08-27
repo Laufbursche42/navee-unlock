@@ -29,6 +29,12 @@ window.I18N = {
     btnRead: "Status lesen",
     liveHint: "Zuerst Status lesen, dann siehst du Region, SKU, Max- und Limit-Geschwindigkeit sowie die Seriennummer. Die rohen Meldungen stehen zusätzlich als Hex im Log.",
 
+    lockTitle: "Fahrzeug-Sperre",
+    btnDoLock: "Sperren",
+    btnDoUnlock: "Entsperren",
+    lockHint: "Die Wegfahrsperre des Scooters (Diebstahlschutz), nicht die Geschwindigkeit.",
+    lockHelp: "Sperrt bzw. entsperrt den Scooter per Bluetooth (Befehl 0x51, wie in der App). Das ist die Wegfahrsperre gegen Diebstahl, sie hat nichts mit der Höchstgeschwindigkeit zu tun. Ein gesperrter Scooter lässt sich nicht fahren, bis du hier oder in der App wieder entsperrst.",
+
     s3Title: "Geschwindigkeit setzen",
     lblSpeed: "Wert (km/h)",
     btnSetSpeed: "Max-Speed setzen",
@@ -129,6 +135,12 @@ window.I18N = {
     serialLabel: "Serial:",
     btnRead: "Read status",
     liveHint: "Read status first to see region, SKU, max and limit speed and the serial. The raw messages are also logged as hex.",
+
+    lockTitle: "Vehicle lock",
+    btnDoLock: "Lock",
+    btnDoUnlock: "Unlock",
+    lockHint: "The scooter's immobilizer (anti-theft), not the speed.",
+    lockHelp: "Locks or unlocks the scooter over Bluetooth (command 0x51, same as the app). This is the anti-theft immobilizer, it has nothing to do with the top speed. A locked scooter cannot be ridden until you unlock it here or in the app.",
 
     s3Title: "Set speed",
     lblSpeed: "Value (km/h)",
