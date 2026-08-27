@@ -1,6 +1,8 @@
 # NAVEE XT5 Unlock
 
-A small static web page that connects to a NAVEE XT5 scooter over Web Bluetooth and changes its **region/SKU**, which is what selects the speed cap - the same lever the paid "license" tuners use. Nothing to install, no account, no firmware flash, no server: everything runs locally in the browser. Works in Chrome (Android/desktop) or Bluefy (iOS).
+**Live page: https://laufbursche42.github.io/navee-unlock/** - open it in Chrome (Android/desktop) or Bluefy (iOS), no install needed.
+
+A small static web page that connects to a NAVEE XT5 scooter over Web Bluetooth and changes its speed cap. It can set the max speed **directly** (the same 0x6E / 0x6B commands the official app's own Max-speed and Speed-limit screens use) or go the **region/SKU** route - the same lever the paid "license" tuners use. Nothing to install, no account, no firmware flash, no server: everything runs locally in the browser.
 
 ## How it works
 
@@ -15,9 +17,11 @@ This is **experimental and not yet verified on a physical XT5.** Use **Read stat
 ## Use it
 
 1. Turn the scooter on and keep it close.
-2. **Connect** and pick the scooter - it authenticates automatically.
+2. **Connect** and pick the scooter from the list - it shows up by name (NAVEE...), same as in the official app, and authenticates automatically. If it is not listed, tick "show all Bluetooth devices".
 3. **Read status** - shows the current region, SKU, max and limit speed, and the serial.
-4. **Scan** to find the country value that raises the max speed, or type a known value and press **Unlock**.
+4. Set the speed. Two ways:
+   - **Direct:** type a value under "Direct speed" and press **Set max speed (0x6E)** or **Set limit (0x6B)**. Any value is allowed, not just what the app offers.
+   - **Region route:** **Scan** to find the country value that raises the cap, or type a known value and press **Unlock**.
 5. **Read status** again to confirm the new cap.
 
 ## Disclaimer
