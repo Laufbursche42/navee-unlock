@@ -174,6 +174,7 @@ function decodeParams(f){
   if(limitVal!=null)    $('t-limit').textContent = limitVal + (o.limitSpeed & 0x80 ? ' (on)' : ' (off)');
   log(`params: max=${o.maxSpeed} limit=${limitVal} start=${o.startSpeed} mode=${o.driveMode} lock=${o.lock} unit=${o.unit}`);
   log('raw param data: '+hexs(p));
+  applyReportToSettings(p);
   return o;
 }
 function decodeSN(f){
@@ -244,11 +245,23 @@ async function writeMaxSpeed(kmh){
   await sendFrame(writeFrame(CMD.MAX_SPEED, [0x01, kmh&0xff]));
   log('max speed -> '+(kmh&0xff)+' km/h');
 }
-// Direct startup speed (0x6A).
-async function writeStartSpeed(kmh){
+// Direct startup speed (0x6A). value 0 = zero-start, higher = push-to-start threshold.
+async function writeStartSpeed(v){
   if(!authed){ log('not authenticated'); return; }
-  await sendFrame(writeFrame(CMD.START_SPEED, [kmh&0xff]));
-  log('start speed -> '+(kmh&0xff)+' km/h');
+  await sendFrame(writeFrame(CMD.START_SPEED, [v&0xff]));
+  log('start speed -> '+(v&0xff));
+}
+// Single-byte setting write, e.g. a 0/1 toggle: 55 AA 00 <cmd> 01 <v> ... (BleHandler.k)
+async function writeToggle(cmd, v){
+  if(!authed){ log('not authenticated'); return; }
+  await sendFrame(writeFrame(cmd, [v&0xff]));
+  log('set 0x'+cmd.toString(16)+' -> '+(v&0xff));
+}
+// Param sub-command write: 55 AA 00 <cmd> 02 <sub> <v> ... (BleHandler.l), e.g. 0x6F long-range.
+async function writeSub(cmd, sub, v){
+  if(!authed){ log('not authenticated'); return; }
+  await sendFrame(writeFrame(cmd, [sub&0xff, v&0xff]));
+  log('set 0x'+cmd.toString(16)+' sub '+sub+' -> '+(v&0xff));
 }
 
 // Scan: try candidate country values, read back maxSpeed after each. Finds the unrestricted value.
@@ -268,14 +281,45 @@ async function scan(){
   else log('scan: no readable maxSpeed - check the raw report bytes in the log');
 }
 
-function onDisconnect(){ connected=false; authed=false; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); }
+function onDisconnect(){ connected=false; authed=false; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); }
 function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(); }
 
 function refreshButtons(){
   const on=connected;
   $('btn-read').disabled=!on; $('btn-unlock').disabled=!on; $('btn-scan').disabled=!on; $('country-in').disabled=!on;
   const sp=$('btn-setspeed'); if(sp){ sp.disabled=!on; $('btn-setlimit').disabled=!on; $('speed-in').disabled=!on; }
+  SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
 }
+
+// Extra settings: each row is a <select> plus a Set button. All opcodes/payloads are byte-exact
+// from the app's own settings screens. `off` is the field's offset in the 0x70 param report; a row
+// is only shown when the connected scooter actually reports that byte, so each model shows only the
+// options it supports. `state` maps a reported byte to the select value.
+const TOGGLE_STATE = v => (v ? 1 : 0);
+const SETTINGS = [
+  { key:'zero',   sel:'zero-in',   btn:'btn-zero',   off:19, send:v=>writeStartSpeed(v), state:v=>(v===0?0:3) },
+  { key:'osc',    sel:'osc-in',    btn:'btn-osc',    off:39, send:v=>writeToggle(0x82,v), state:TOGGLE_STATE },
+  { key:'tcs',    sel:'tcs-in',    btn:'btn-tcs',    off:11, send:v=>writeToggle(0x5F,v), state:TOGGLE_STATE },
+  { key:'slope',  sel:'slope-in',  btn:'btn-slope',  off:37, send:v=>writeToggle(0x81,v), state:TOGGLE_STATE },
+  { key:'cruise', sel:'cruise-in', btn:'btn-cruise', off:3,  send:v=>writeToggle(0x52,v), state:TOGGLE_STATE },
+  { key:'lrange', sel:'lrange-in', btn:'btn-lrange', off:38, send:v=>writeSub(0x6F,7,v), state:TOGGLE_STATE },
+  { key:'tail',   sel:'tail-in',   btn:'btn-tail',   off:4,  send:v=>writeToggle(0x54,v), state:TOGGLE_STATE },
+  { key:'alight', sel:'alight-in', btn:'btn-alight', off:8,  send:v=>writeToggle(0x57,v), state:TOGGLE_STATE },
+  { key:'tsound', sel:'tsound-in', btn:'btn-tsound', off:12, send:v=>writeToggle(0x60,v), state:TOGGLE_STATE },
+  { key:'unit',   sel:'unit-in',   btn:'btn-unit',   off:7,  send:v=>writeToggle(0x55,v), state:v=>(v?1:0) },
+  { key:'prox',   sel:'prox-in',   btn:'btn-prox',   off:13, send:v=>writeToggle(0x61,v), state:TOGGLE_STATE },
+];
+// Reveal only the settings the scooter reports (data block p from a 0x70 report) and prefill them.
+function applyReportToSettings(p){
+  let any=false;
+  SETTINGS.forEach(s=>{
+    const row=$('row-'+s.key); if(!row) return;
+    if(s.off < p.length){ row.hidden=false; any=true; const sel=$(s.sel); if(sel) sel.value=String(s.state(p[s.off])); }
+    else row.hidden=true;
+  });
+  const empty=$('more-empty'); if(empty) empty.hidden=any;
+}
+function resetSettings(){ SETTINGS.forEach(s=>{ const row=$('row-'+s.key); if(row) row.hidden=true; }); const e=$('more-empty'); if(e) e.hidden=false; }
 
 function copyLog(){ const el=$('log'); if(!el) return; navigator.clipboard && navigator.clipboard.writeText(el.textContent); }
 function clearLog(){ const el=$('log'); if(el) el.textContent=''; }
@@ -288,6 +332,7 @@ function wireControls(){
   $('btn-scan').addEventListener('click', scan);
   $('btn-setspeed').addEventListener('click', ()=> writeMaxSpeed(parseInt($('speed-in').value||'0',10)||0));
   $('btn-setlimit').addEventListener('click', ()=> writeLimitSpeed(parseInt($('speed-in').value||'0',10)||0, true));
+  SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=> s.send(parseInt($(s.sel).value||'0',10)||0)); });
   $('btn-copy-log').addEventListener('click', copyLog);
   $('btn-clear-log').addEventListener('click', clearLog);
 }
@@ -420,6 +465,7 @@ function wireDocViewer(){
 // ---------- help modal ----------
 const HELP = {
   speed:   ['s3Title', 'speedHelp'],
+  more:    ['moreTitle', 'moreHelp'],
   country: ['s4Title', 'countryHelp'],
   account: ['accountTitle', 'accountHelp'],
   authhex: ['authhexTitle', 'authhexHelp'],
