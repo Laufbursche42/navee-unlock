@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v4';
+const BUILD = 'v5';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
@@ -290,8 +290,7 @@ function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(
 function refreshButtons(){
   const on=connected;
   $('btn-read').disabled=!on; $('btn-unlock').disabled=!on; $('btn-scan').disabled=!on; $('country-in').disabled=!on;
-  { const l=$('btn-lock'), u=$('btn-unlockcar'); if(l) l.disabled=!on; if(u) u.disabled=!on; }
-  const sp=$('btn-setspeed'); if(sp){ sp.disabled=!on; $('btn-setlimit').disabled=!on; $('speed-in').disabled=!on; }
+  const sp=$('btn-setspeed'); if(sp){ sp.disabled=!on; $('btn-setlimit').disabled=!on; $('speed-in').disabled=!on; $('limit-in').disabled=!on; }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
 }
 
@@ -301,6 +300,7 @@ function refreshButtons(){
 // options it supports. `state` maps a reported byte to the select value.
 const TOGGLE_STATE = v => (v ? 1 : 0);
 const SETTINGS = [
+  { key:'lock',   sel:'lock-in',   btn:'btn-locksel', off:2, send:v=>writeToggle(0x51,v), state:TOGGLE_STATE }, // Wegfahrsperre
   { key:'zero',   sel:'zero-in',   btn:'btn-zero',   off:19, send:v=>writeStartSpeed(v), state:v=>(v===0?0:3) },
   { key:'osc',    sel:'osc-in',    btn:'btn-osc',    off:39, send:v=>writeToggle(0x82,v), state:TOGGLE_STATE },
   { key:'tcs',    sel:'tcs-in',    btn:'btn-tcs',    off:11, send:v=>writeToggle(0x5F,v), state:TOGGLE_STATE },
@@ -335,9 +335,7 @@ function wireControls(){
   $('btn-unlock').addEventListener('click', ()=> writeCountry(parseInt($('country-in').value||'0',10)||0));
   $('btn-scan').addEventListener('click', scan);
   $('btn-setspeed').addEventListener('click', ()=> writeMaxSpeed(parseInt($('speed-in').value||'0',10)||0));
-  $('btn-setlimit').addEventListener('click', ()=> writeLimitSpeed(parseInt($('speed-in').value||'0',10)||0, true));
-  { const b=$('btn-lock'); if(b) b.addEventListener('click', ()=> writeToggle(0x51, 1)); }
-  { const b=$('btn-unlockcar'); if(b) b.addEventListener('click', ()=> writeToggle(0x51, 0)); }
+  $('btn-setlimit').addEventListener('click', ()=> writeLimitSpeed(parseInt($('limit-in').value||'0',10)||0, true));
   SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=> s.send(parseInt($(s.sel).value||'0',10)||0)); });
   $('btn-copy-log').addEventListener('click', copyLog);
   $('btn-clear-log').addEventListener('click', clearLog);
@@ -470,7 +468,6 @@ function wireDocViewer(){
 
 // ---------- help modal ----------
 const HELP = {
-  lock:    ['lockTitle', 'lockHelp'],
   speed:   ['s3Title', 'speedHelp'],
   more:    ['moreTitle', 'moreHelp'],
   country: ['s4Title', 'countryHelp'],

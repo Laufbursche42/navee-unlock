@@ -8,7 +8,7 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="favicon-180.png">
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 <div class="wrap">
@@ -62,23 +62,16 @@
   </div>
 
   <div class="card">
-    <div class="card-head"><h2 data-t="lockTitle"></h2><button type="button" class="help-btn" data-help="lock" aria-label="Info">?</button></div>
-    <div class="btns">
-      <button id="btn-lock" data-t="btnDoLock" disabled></button>
-      <button id="btn-unlockcar" data-t="btnDoUnlock" disabled></button>
-    </div>
-    <p class="hint" data-t="lockHint"></p>
-  </div>
-
-  <div class="card">
     <div class="card-head"><h2 data-t="s3Title"></h2><button type="button" class="help-btn" data-help="speed" aria-label="Info">?</button></div>
-    <div class="row">
-      <label class="full" data-t="lblSpeed"></label>
+    <div class="set-row">
+      <label data-t="lblMaxSpeed"></label>
       <input id="speed-in" type="number" inputmode="numeric" min="0" max="255" placeholder="32" disabled>
+      <button class="primary" id="btn-setspeed" data-t="btnSend" disabled></button>
     </div>
-    <div class="btns">
-      <button class="primary" id="btn-setspeed" data-t="btnSetSpeed" disabled></button>
-      <button id="btn-setlimit" data-t="btnSetLimit" disabled></button>
+    <div class="set-row">
+      <label data-t="lblLimit2"></label>
+      <input id="limit-in" type="number" inputmode="numeric" min="0" max="127" placeholder="22" disabled>
+      <button id="btn-setlimit" data-t="btnSend" disabled></button>
     </div>
     <p class="hint" data-t="speedHint"></p>
   </div>
@@ -86,6 +79,11 @@
   <div class="card">
     <div class="card-head"><h2 data-t="moreTitle"></h2><button type="button" class="help-btn" data-help="more" aria-label="Info">?</button></div>
     <p class="hint" id="more-empty" data-t="moreEmpty"></p>
+    <div class="set-row" id="row-lock" hidden>
+      <label data-t="lblLock"></label>
+      <select id="lock-in" disabled><option value="0" data-t="optUnlocked"></option><option value="1" data-t="optLocked"></option></select>
+      <button id="btn-locksel" data-t="btnSend" disabled></button>
+    </div>
     <div class="set-row" id="row-zero" hidden>
       <label data-t="lblZero"></label>
       <select id="zero-in" disabled><option value="0" data-t="zeroOn"></option><option value="3" data-t="zeroOff"></option></select>
@@ -215,7 +213,7 @@
   </div>
 </dialog>
 
-<script src="i18n.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="i18n.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
