@@ -80,6 +80,13 @@ window.I18N = {
     authhexTitle: "Auth-Frame (Hex)",
     authhexHelp: "Eine Option für Fortgeschrittene. Wenn du den Verbindungs-Handshake der offiziellen App mitgeschnitten hast, zum Beispiel mit einem BLE-Sniffer oder der App nRF Connect, kannst du den 0x30-Auth-Frame hier als Hex einfügen. Die Seite spielt ihn dann genau so ab, statt selbst einen zu bauen. Normale Nutzer lassen das Feld leer.",
 
+    scTitle: "Verknüpfungen",
+    scFast: "Entsperren: offener Wert",
+    scSlow: "Sperren: gedrosselter Wert",
+    shortcutIos: "iOS (Bluefy): lege dir eine Verknüpfung auf diese Adresse an.",
+    shortcutAndroid: "Android (Chrome): eine Verknüpfung auf dem Startbildschirm auf diese Adresse.",
+    shortcutNote: "Über eine solche Verknüpfung geöffnet, verbindet sich die Seite mit dem zuletzt genutzten Scooter und setzt die Höchstgeschwindigkeit: Sperren auf den gedrosselten Wert, Entsperren auf den offenen. Der Scooter muss an und in Reichweite sein. Beim ersten Mal einmal normal verbinden, damit der Browser den Scooter merkt.",
+
     s6Title: "Protokoll-Log",
     btnCopyLog: "Log kopieren",
     btnClearLog: "Log leeren",
@@ -184,6 +191,13 @@ window.I18N = {
     accountHelp: "When connecting, the app sends an account id as a tag in the auth handshake. The page generates a random one automatically, which works in almost all cases, so you normally leave this field empty. Only if the scooter refuses to connect, enter the owner's real account id here. You find it in the official NAVEE app under your user account.",
     authhexTitle: "Auth frame (hex)",
     authhexHelp: "An option for advanced users. If you captured the official app's connect handshake, for example with a BLE sniffer or the nRF Connect app, you can paste the 0x30 auth frame here as hex. The page then replays it exactly instead of building its own. Normal users leave this empty.",
+
+    scTitle: "Shortcuts",
+    scFast: "Unlock: open value",
+    scSlow: "Lock: throttled value",
+    shortcutIos: "iOS (Bluefy): add a shortcut pointing at this address.",
+    shortcutAndroid: "Android (Chrome): a home-screen shortcut pointing at this address.",
+    shortcutNote: "Opened through such a shortcut, the page reconnects to the last scooter and sets the top speed: Lock to the throttled value, Unlock to the open one. The scooter has to be on and in range. Connect once normally first so the browser remembers the scooter.",
 
     s6Title: "Protocol log",
     btnCopyLog: "Copy log",

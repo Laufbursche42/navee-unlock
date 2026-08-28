@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v12';
+const BUILD = 'v13';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
@@ -141,12 +141,12 @@ async function handleFrame(f){
       log('auth challenge received, responding (key '+curKeyIdx+')');
       await sendFrame(await authRespFrame(challenge, curKeyIdx));
     } else {                               // short ack = session already up
-      authed=true; setStatus('connected'); refreshButtons(); log('authenticated (ack)'); autoRead();
+      authed=true; setStatus('connected'); refreshButtons(); log('authenticated (ack)'); autoRead(); maybeRunDeepAction();
     }
     return;
   }
   if(cmd===CMD.AUTH_RESP){                  // 0x31 result
-    if(err===0){ authed=true; setStatus('connected'); refreshButtons(); log('authenticated'); autoRead(); }
+    if(err===0){ authed=true; setStatus('connected'); refreshButtons(); log('authenticated'); autoRead(); maybeRunDeepAction(); }
     else log('auth response rejected, code '+err);
     return;
   }
@@ -199,18 +199,25 @@ async function connect(){
     const opts = showAll
       ? { acceptAllDevices:true, optionalServices:[SERVICE] }
       : { filters:[{namePrefix:'NAVEE'}], optionalServices:[SERVICE] };
-    device=await navigator.bluetooth.requestDevice(opts);
-    device.addEventListener('gattserverdisconnected', onDisconnect);
-    const server=await device.gatt.connect();
-    const svc=await server.getPrimaryService(SERVICE);
-    writeCh=await svc.getCharacteristic(WRITE_CHAR);
-    notifyCh=await svc.getCharacteristic(NOTIFY_CHAR);
-    await notifyCh.startNotifications();
-    notifyCh.addEventListener('characteristicvaluechanged', onNotify);
-    connected=true; authed=false; autoReadDone=false; setStatus('connected');
-    log('connected to '+(device.name||device.id)); refreshButtons();
-    await sleep(150); await authenticate();
+    const dev=await navigator.bluetooth.requestDevice(opts);
+    await connectDevice(dev);
   }catch(e){ setStatus('error'); log('connect failed: '+e.message); }
+}
+// Connect to an already-chosen BluetoothDevice (used by connect() and by the shortcut auto-reconnect).
+async function connectDevice(dev){
+  setStatus('connecting');
+  device=dev;
+  try{ if(device.id) localStorage.setItem('navee.device', device.id); }catch(e){}
+  device.addEventListener('gattserverdisconnected', onDisconnect);
+  const server=await device.gatt.connect();
+  const svc=await server.getPrimaryService(SERVICE);
+  writeCh=await svc.getCharacteristic(WRITE_CHAR);
+  notifyCh=await svc.getCharacteristic(NOTIFY_CHAR);
+  await notifyCh.startNotifications();
+  notifyCh.addEventListener('characteristicvaluechanged', onNotify);
+  connected=true; authed=false; autoReadDone=false; setStatus('connected');
+  log('connected to '+(device.name||device.id)); refreshButtons();
+  await sleep(150); await authenticate();
 }
 
 async function authenticate(){
@@ -500,6 +507,37 @@ function wireHelp(){
   document.addEventListener('click', e=>{ if(e.target.closest && e.target.closest('[data-open-disclaimer]')){ e.preventDefault(); openHelp('disclaimer'); } });
 }
 
+// ---------- home-screen shortcuts (deep link ?do=fast|slow, like sf-unlock) ----------
+// A shortcut opens the page with ?do=fast (unlock/open) or ?do=slow (throttle). The page reconnects
+// to the last granted scooter via getDevices() (no chooser) and runs the action after auth.
+let pendingDeepAction=null;
+function parseDeepLink(){
+  try{
+    let a=(new URLSearchParams(location.search).get('do')||'').toLowerCase();
+    if(!a&&location.hash) a=(new URLSearchParams(location.hash.replace(/^#/,'')).get('do')||'').toLowerCase();
+    if(a==='fast'||a==='slow'){ pendingDeepAction=a; log('shortcut: '+a+' requested'); }
+  }catch(e){}
+}
+function maybeRunDeepAction(){
+  if(!pendingDeepAction||!authed) return;
+  const a=pendingDeepAction; pendingDeepAction=null;
+  const v = a==='fast' ? drOpenVal() : drLockedVal();
+  log('shortcut: '+(a==='fast'?'unlock -> ':'throttle -> ')+v+' km/h');
+  persistDrossel(); writeMaxSpeed(v);
+  setTimeout(()=>{ if(authed) sendFrame(readFrame(CMD.READ_PARAMS)); }, 400);
+}
+async function tryAutoReconnect(){
+  if(!pendingDeepAction) return;                 // only auto-reconnect when a shortcut asked for it
+  if(!navigator.bluetooth||!navigator.bluetooth.getDevices) return;
+  let devs; try{ devs=await navigator.bluetooth.getDevices(); }catch(e){ return; }
+  if(!devs||!devs.length){ log('shortcut: no remembered scooter, connect once manually first'); return; }
+  let savedId=null; try{ savedId=localStorage.getItem('navee.device'); }catch(e){}
+  const dev=(savedId&&devs.find(d=>d.id===savedId)) || devs.find(d=>(d.name||'').indexOf('NAVEE')>=0) || null;
+  if(!dev){ log('shortcut: remembered scooter not in range'); return; }
+  try{ log('auto-reconnect: '+(dev.name||dev.id)); await connectDevice(dev); }
+  catch(e){ setStatus('disconnected'); log('auto-reconnect failed: '+(e&&e.message?e.message:e)); }
+}
+
 wireControls();
 loadDrossel();
 initLang();
@@ -507,5 +545,7 @@ initTheme();
 wireDocViewer();
 wireHelp();
 applyLang();
+parseDeepLink();
+tryAutoReconnect();
 log('NAVEE unlock '+BUILD);
 if(!('bluetooth' in navigator)) log('Web Bluetooth not available - use Chrome (Android/desktop) or Bluefy (iOS).');
