@@ -181,8 +181,8 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-/* Throttle: the two target values in two columns, compact number boxes. */
-.dr-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.dr-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.dr-field label { text-transform: none; letter-spacing: 0; color: var(--muted); }
-.dr-field input { width: 100%; max-width: 6rem; text-align: center; padding: 8px 6px; }
+/* Throttle: two columns, each one line "label [field]" side by side. */
+.dr-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.dr-field { display: flex; flex-direction: row; align-items: center; gap: 8px; min-width: 0; }
+.dr-field label { text-transform: none; letter-spacing: 0; color: var(--muted); font-size: 12px; flex: 0 1 auto; }
+.dr-field input { flex: 0 0 3.6rem; width: 3.6rem; text-align: center; padding: 8px 6px; }
