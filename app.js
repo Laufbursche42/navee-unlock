@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v15';
+const BUILD = 'v16';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
@@ -347,6 +347,12 @@ async function writeSub(cmd, sub, v){
   await sendFrame(writeFrame(cmd, [sub&0xff, v&0xff]));
   log('set 0x'+cmd.toString(16)+' sub '+sub+' -> '+(v&0xff));
 }
+// Sound (0x6C): volume byte with bit7 = sound on, second byte = language (0). {vol|0x80, 0}
+async function writeSound(v){
+  if(!authed){ log('not authenticated'); return; }
+  await sendFrame(writeFrame(0x6C, [((v&0x7f)|0x80)&0xff, 0]));
+  log('sound volume -> '+(v&0x7f));
+}
 
 // Scan: try candidate country values, read back maxSpeed after each. Finds the unrestricted value.
 async function scan(){
@@ -383,24 +389,38 @@ function refreshButtons(){
 const TOGGLE_STATE = v => (v ? 1 : 0);
 const SETTINGS = [
   { key:'lock',   sel:'lock-in',   btn:'btn-locksel', off:2, send:v=>writeToggle(0x51,v), state:TOGGLE_STATE }, // Wegfahrsperre
-  { key:'zero',   sel:'zero-in',   btn:'btn-zero',   off:19, send:v=>writeStartSpeed(v), state:v=>(v===0?0:3) },
+  { key:'zero',   sel:'zero-in',   btn:'btn-zero',   off:19, send:v=>writeStartSpeed(v), state:v=>Math.min(5,v) },
+  { key:'drive',  sel:'drive-in',  btn:'btn-drive',  off:26, send:v=>writeSub(0x6E,2,v), state:TOGGLE_STATE }, // Dual-Drive
+  { key:'accel',  sel:'accel-in',  btn:'btn-accel',  off:null, send:v=>writeToggle(0x58,v) },                  // Normal 3 / Turbo 5
+  { key:'ers',    sel:'ers-in',    btn:'btn-ers',    off:5,  send:v=>writeToggle(0x53,v), state:v=>v },        // Rekuperation
+  { key:'limitc', sel:'limitc-in', btn:'btn-limitc', off:20, send:v=>writeLimitSpeed(v,true), state:v=>(v&0x7f) }, // Custom-Limit
+  { key:'kmalg',  sel:'kmalg-in',  btn:'btn-kmalg',  off:6,  send:v=>writeToggle(0x56,v), state:v=>v },
   { key:'osc',    sel:'osc-in',    btn:'btn-osc',    off:39, send:v=>writeToggle(0x82,v), state:TOGGLE_STATE },
   { key:'tcs',    sel:'tcs-in',    btn:'btn-tcs',    off:11, send:v=>writeToggle(0x5F,v), state:TOGGLE_STATE },
   { key:'slope',  sel:'slope-in',  btn:'btn-slope',  off:37, send:v=>writeToggle(0x81,v), state:TOGGLE_STATE },
   { key:'cruise', sel:'cruise-in', btn:'btn-cruise', off:3,  send:v=>writeToggle(0x52,v), state:TOGGLE_STATE },
   { key:'lrange', sel:'lrange-in', btn:'btn-lrange', off:38, send:v=>writeSub(0x6F,7,v), state:TOGGLE_STATE },
+  { key:'lowpow', sel:'lowpow-in', btn:'btn-lowpow', off:32, send:v=>writeSub(0x6F,5,v), state:TOGGLE_STATE },
+  { key:'chlimit',sel:'chlimit-in',btn:'btn-chlimit',off:31, send:v=>writeSub(0x6F,4,v), state:v=>v },
+  { key:'locktime',sel:'locktime-in',btn:'btn-locktime',off:34, send:v=>writeSub(0x6F,2,v), state:v=>v },
   { key:'tail',   sel:'tail-in',   btn:'btn-tail',   off:4,  send:v=>writeToggle(0x54,v), state:TOGGLE_STATE },
   { key:'alight', sel:'alight-in', btn:'btn-alight', off:8,  send:v=>writeToggle(0x57,v), state:TOGGLE_STATE },
+  { key:'ambient',sel:'ambient-in',btn:'btn-ambient',off:10, send:v=>writeToggle(0x5E,v), state:TOGGLE_STATE },
+  { key:'logo',   sel:'logo-in',   btn:'btn-logo',   off:23, send:v=>writeSub(0x6D,2,v), state:TOGGLE_STATE },
+  { key:'dayrun', sel:'dayrun-in', btn:'btn-dayrun', off:24, send:v=>writeSub(0x6D,3,v), state:TOGGLE_STATE },
   { key:'tsound', sel:'tsound-in', btn:'btn-tsound', off:12, send:v=>writeToggle(0x60,v), state:TOGGLE_STATE },
+  { key:'sound',  sel:'sound-in',  btn:'btn-sound',  off:21, send:v=>writeSound(v), state:v=>(v&0x7f) },
   { key:'unit',   sel:'unit-in',   btn:'btn-unit',   off:7,  send:v=>writeToggle(0x55,v), state:v=>(v?1:0) },
   { key:'prox',   sel:'prox-in',   btn:'btn-prox',   off:13, send:v=>writeToggle(0x61,v), state:TOGGLE_STATE },
+  { key:'tyre',   sel:null,        btn:'btn-tyre',   off:null, send:()=>writeToggle(0x5A,1) },
 ];
 // Reveal only the settings the scooter reports (data block p from a 0x70 report) and prefill them.
 function applyReportToSettings(p){
   let any=false;
   SETTINGS.forEach(s=>{
     const row=$('row-'+s.key); if(!row) return;
-    if(s.off < p.length){ row.hidden=false; any=true; const sel=$(s.sel); if(sel) sel.value=String(s.state(p[s.off])); }
+    if(s.off==null){ row.hidden=false; any=true; return; }   // no report field: show once connected
+    if(s.off < p.length){ row.hidden=false; any=true; const sel=$(s.sel); if(sel&&s.state) sel.value=String(s.state(p[s.off])); }
     else row.hidden=true;
   });
   const empty=$('more-empty'); if(empty) empty.hidden=any;
@@ -416,7 +436,7 @@ function wireControls(){
   $('btn-scan').addEventListener('click', scan);
   $('btn-locktoggle').addEventListener('click', doToggle);
   ['open-in','locked-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', ()=>{ persistDrossel(); updateToggle(); }); });
-  SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=> s.send(parseInt($(s.sel).value||'0',10)||0)); });
+  SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=>{ const el=s.sel?$(s.sel):null; s.send(el?(parseInt(el.value||'0',10)||0):0); }); });
   $('btn-copy-log').addEventListener('click', copyLog);
   $('btn-clear-log').addEventListener('click', clearLog);
 }
