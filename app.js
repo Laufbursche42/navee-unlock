@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v14';
+const BUILD = 'v15';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
@@ -42,6 +42,7 @@ const CMD = {
   REGION:0x6F,                                          // scooter params (subcmd 08 = country)
   READ_PARAMS:0x70, REPORT:0x70,                        // read/report full vehicle param block
   READ_BATTERY:0x72,                                    // (was mislabelled READ_SN in the old build)
+  READ_FW:0x73,
   READ_SN:0x74, SN_REPORT:0x74,                         // read/report car serial (region source)
 };
 
@@ -154,7 +155,17 @@ async function handleFrame(f){
   const w=waiters.find(x=>x.cmd===cmd); if(w){ waiters=waiters.filter(x=>x!==w); w.res(f); }
   if(cmd===CMD.REPORT) decodeParams(f);
   if(cmd===CMD.SN_REPORT) decodeSN(f);
+  if(cmd===CMD.READ_BATTERY) decodeBattery(f);
+  if(cmd===CMD.READ_FW) decodeFirmware(f);
+  if(cmd===0x90||cmd===0x91||cmd===0x92) decodeRealtime(cmd,f);
 }
+
+// read len bytes from p at off; z2=true big-endian, z2=false little-endian (matches ByteUtil.p)
+function rd(p,off,len,z2){ if(off+len>p.length) return null; if(len===1) return p[off]&0xff; let b=[...p.slice(off,off+len)]; if(!z2) b=b.reverse(); let v=0; for(const x of b) v=v*256+(x&0xff); return v; }
+// set a telemetry tile: fill value and reveal its wrapper (report-gated)
+function setTile(key,val){ const b=$('tv-'+key), w=$('tile-'+key); if(b) b.textContent=val; if(w) w.hidden=false; }
+function resetTiles(){ document.querySelectorAll('#tele-card .tile').forEach(el=>el.hidden=true); const e=$('tele-empty'); if(e) e.hidden=false; }
+function teleSeen(){ const e=$('tele-empty'); if(e) e.hidden=true; }
 
 // Full vehicle param report (cmd 0x70). Offsets are into the DATA block (byte[6]+), taken
 // verbatim from DeviceCarInfo parsing in BleHandler.G case 112 (v2.1.6). Raw is logged too.
@@ -187,6 +198,50 @@ function decodeSN(f){
   sn=sn.trim();
   if(sn.length>=10){ const area=sn.substring(8,10); $('t-sn').textContent=sn; $('t-region').textContent=area; $('t-sku').textContent=skuOf(area); log('serial '+sn+' -> region '+area+' (SKU '+skuOf(area)+')'); }
   else log('SN report: '+hexs(f));
+}
+// Battery report (cmd 0x72). Offsets from DeviceBatteryInfo (BleHandler.G case 114).
+function decodeBattery(f){
+  const {err, data:p} = frameParts(f); if(err!==0){ log('battery error code '+err); return; }
+  teleSeen();
+  const charge=rd(p,1,1), volt=rd(p,2,4,false), curr=rd(p,6,4,false), health=rd(p,10,1), temp=rd(p,11,1), cyc=rd(p,13,2,false);
+  if(charge!=null) setTile('batt', charge+' %');
+  if(volt!=null)   setTile('volt', (volt/100).toFixed(1)+' V');   // report is centivolt; verify on hardware
+  if(curr!=null)   setTile('curr', curr+' (roh)');
+  if(health!=null) setTile('health', health+' %');
+  if(temp!=null)   setTile('temp', temp+' C');
+  if(cyc!=null)    setTile('cycles', cyc);
+  log('battery: charge='+charge+' volt(raw)='+volt+' health='+health+' temp='+temp+' cycles='+cyc);
+  log('raw battery data: '+hexs(p));
+}
+// Firmware report (cmd 0x73). Five 4-byte ASCII version blocks (BleHandler.G case 115 -> q()).
+function decodeFirmware(f){
+  const {err, data:p} = frameParts(f); if(err!==0){ log('firmware error code '+err); return; }
+  teleSeen();
+  const ver=(o)=>{ if(o+4>p.length) return null; let s=[]; for(let i=o;i<o+4;i++) s.push(String.fromCharCode(p[i])); return s.join('.'); };
+  const parts={ meter:ver(0), bldc:ver(4), bms:ver(8), screen:ver(12), uwb:ver(16) };
+  for(const k in parts){ if(parts[k]!=null) setTile('fw-'+k, parts[k]); }
+  log('firmware: '+JSON.stringify(parts));
+}
+// Live reports (0x90 home, 0x91/0x92 sub). Speed, mode, mileage, fault code.
+function decodeRealtime(cmd,f){
+  const {err, data:p} = frameParts(f); if(err!==0) return;
+  teleSeen();
+  if(cmd===0x90){
+    const fault=rd(p,0,1), mode=rd(p,1,1), charge=rd(p,2,1), range=rd(p,6,1);
+    if(fault!=null) setTile('fault', fault===0 ? '0 (ok)' : String(fault));
+    if(mode!=null)  setTile('mode', mode);
+    if(charge!=null) setTile('batt', charge+' %');
+    if(range!=null) setTile('range', range+' km');
+  } else if(cmd===0x91){
+    const spd=rd(p,2,1), range=rd(p,3,1), total=rd(p,8,1);
+    if(spd!=null) setTile('speed', spd+' km/h');
+    if(range!=null) setTile('range', range+' km');
+    if(total!=null) setTile('total', total+' km');
+  } else if(cmd===0x92){
+    const spd=rd(p,2,2,false), total=rd(p,12,2,false);
+    if(spd!=null) setTile('speed', (spd/10).toFixed(1)+' km/h');
+    if(total!=null) setTile('total', total+' km');
+  }
 }
 
 async function connect(){
@@ -233,6 +288,10 @@ async function readStatus(){
   await sendFrame(readFrame(CMD.READ_SN));     // 0x74 -> serial/region (source of the SKU)
   await sleep(300);
   await sendFrame(readFrame(CMD.READ_PARAMS)); // 0x70 -> full param block incl. speeds
+  await sleep(300);
+  await sendFrame(readFrame(CMD.READ_BATTERY));// 0x72 -> battery telemetry
+  await sleep(300);
+  await sendFrame(readFrame(CMD.READ_FW));     // 0x73 -> firmware versions
 }
 
 // ----- writers -----
@@ -306,7 +365,7 @@ async function scan(){
   else log('scan: no readable maxSpeed - check the raw report bytes in the log');
 }
 
-function onDisconnect(){ connected=false; authed=false; autoReadDone=false; lastMaxSpeed=null; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); }
+function onDisconnect(){ connected=false; authed=false; autoReadDone=false; lastMaxSpeed=null; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); resetTiles(); }
 function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(); }
 
 function refreshButtons(){

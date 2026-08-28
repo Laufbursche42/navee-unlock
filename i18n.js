@@ -28,6 +28,13 @@ window.I18N = {
     serialLabel: "Seriennummer:",
     liveHint: "Region, SKU, Max- und Limit-Geschwindigkeit sowie die Seriennummer werden nach dem Verbinden automatisch gelesen. Die rohen Meldungen stehen als Hex im Log.",
 
+    teleTitle: "Telemetrie",
+    teleEmpty: "Nach dem Verbinden erscheinen hier nur die Werte, die dein Scooter meldet.",
+    teleHint: "Live-Werte vom Scooter. Es erscheint nur, was das Modell liefert. Spannung und Strom sind Rohwerte, am Gerät zu verifizieren.",
+    ttBatt: "Akku", ttSpeed: "Geschwindigkeit", ttMode: "Fahrmodus", ttRange: "Restreichweite", ttTotal: "Gesamtstrecke",
+    ttVolt: "Spannung", ttCurr: "Strom", ttTemp: "Temperatur", ttHealth: "Akku-Gesundheit", ttCycles: "Ladezyklen", ttFault: "Fehlercode",
+    ttFwMeter: "FW Anzeige", ttFwBldc: "FW Motor", ttFwBms: "FW Batterie", ttFwScreen: "FW Display", ttFwUwb: "FW UWB",
+
     lblLock: "Wegfahrsperre",
     optLocked: "Gesperrt",
     optUnlocked: "Entsperrt",
@@ -139,6 +146,13 @@ window.I18N = {
     tileLimit: "Limit",
     serialLabel: "Serial:",
     liveHint: "Region, SKU, max and limit speed and the serial are read automatically after connecting. The raw messages are logged as hex.",
+
+    teleTitle: "Telemetry",
+    teleEmpty: "After connecting, only the values your scooter reports show up here.",
+    teleHint: "Live values from the scooter. Only what the model provides is shown. Voltage and current are raw values, verify on the device.",
+    ttBatt: "Battery", ttSpeed: "Speed", ttMode: "Ride mode", ttRange: "Range left", ttTotal: "Total distance",
+    ttVolt: "Voltage", ttCurr: "Current", ttTemp: "Temperature", ttHealth: "Battery health", ttCycles: "Charge cycles", ttFault: "Fault code",
+    ttFwMeter: "FW meter", ttFwBldc: "FW motor", ttFwBms: "FW battery", ttFwScreen: "FW display", ttFwUwb: "FW UWB",
 
     lblLock: "Immobilizer",
     optLocked: "Locked",
