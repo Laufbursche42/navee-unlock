@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v13';
+const BUILD = 'v14';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
@@ -515,14 +515,16 @@ function parseDeepLink(){
   try{
     let a=(new URLSearchParams(location.search).get('do')||'').toLowerCase();
     if(!a&&location.hash) a=(new URLSearchParams(location.hash.replace(/^#/,'')).get('do')||'').toLowerCase();
-    if(a==='fast'||a==='slow'){ pendingDeepAction=a; log('shortcut: '+a+' requested'); }
+    if(a==='unlock'||a==='fast') pendingDeepAction='unlock';       // open
+    else if(a==='lock'||a==='slow') pendingDeepAction='lock';      // throttle
+    if(pendingDeepAction) log('shortcut: '+pendingDeepAction+' requested');
   }catch(e){}
 }
 function maybeRunDeepAction(){
   if(!pendingDeepAction||!authed) return;
   const a=pendingDeepAction; pendingDeepAction=null;
-  const v = a==='fast' ? drOpenVal() : drLockedVal();
-  log('shortcut: '+(a==='fast'?'unlock -> ':'throttle -> ')+v+' km/h');
+  const v = a==='unlock' ? drOpenVal() : drLockedVal();
+  log('shortcut: '+(a==='unlock'?'unlock -> ':'lock -> ')+v+' km/h');
   persistDrossel(); writeMaxSpeed(v);
   setTimeout(()=>{ if(authed) sendFrame(readFrame(CMD.READ_PARAMS)); }, 400);
 }
