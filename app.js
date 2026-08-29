@@ -30,8 +30,12 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v17';
-const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
+const BUILD = 'v18';
+// A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
+// account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
+// challenge (verified against the decompile + a real device log). A random id only works on an
+// UNBOUND scooter (trust-on-first-use). So the real numeric userId must be supplied for a bound one.
+const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // fallback for an unbound scooter only
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
 const NOTIFY_CHAR = '0000b003-0000-1000-8000-00805f9b34fb';
@@ -96,7 +100,7 @@ function parseHexFrame(s){
 }
 
 // ---------- BLE ----------
-let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false, lastMaxSpeed=null;
+let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false, lastMaxSpeed=null, usingRandomUid=false;
 // Read status once, automatically, right after authentication so the live values and the
 // model-specific settings appear without the user pressing Read.
 function autoRead(){ if(autoReadDone) return; autoReadDone=true; setTimeout(()=>{ if(authed) readStatus(); }, 500); }
@@ -136,7 +140,12 @@ async function handleFrame(f){
   log('RX '+hexs(f));
   const {cmd, err, data} = frameParts(f);
   if(cmd===CMD.AUTH_INIT){                 // 0x30 from scooter
-    if(err!==0){ log('auth error code '+err); setStatus('error'); return; }
+    if(err!==0){                           // scooter rejected the init (no challenge follows)
+      setStatus('error');
+      if(err===255){ log(t('logAuth255') || 'auth rejected (255): the scooter is bound to an account; enter its numeric account userId (not the Navee-ID) under Advanced.'); }
+      else log('auth error code '+err);
+      return;
+    }
     if(data.length>=16){                   // challenge present
       const challenge=data.slice(data.length-16);
       log('auth challenge received, responding (key '+curKeyIdx+')');
@@ -280,8 +289,19 @@ async function connectDevice(dev){
 async function authenticate(){
   const hexIn=$('authhex-in').value.trim();
   let f;
-  if(hexIn){ f=parseHexFrame(hexIn); if(!f){ log('invalid auth hex'); return; } curKeyIdx=f[5]??0; log('sending pasted auth frame (key '+curKeyIdx+')'); }
-  else { const ov=parseInt($('uid-in').value,10); const uid=(Number.isFinite(ov)&&ov>0)?ov:AUTO_UID; curKeyIdx=Math.floor(Math.random()*KEYS.length); f=authInitFrame(uid,curKeyIdx); log('auth init (key '+curKeyIdx+')'); }
+  if(hexIn){                                // paste the official app's own 0x30 frame (carries the real userId + keyIdx)
+    f=parseHexFrame(hexIn); if(!f){ log('invalid auth hex'); return; }
+    curKeyIdx=f[5]??0; usingRandomUid=false; log('sending pasted auth frame (key '+curKeyIdx+')');
+  } else {
+    const raw=(($('uid-in')&&$('uid-in').value)||'').trim();
+    const ov=parseInt(raw,10);
+    let uid;
+    if(raw!=='' && Number.isFinite(ov) && ov>0){ uid=ov; usingRandomUid=false; }
+    else { uid=AUTO_UID; usingRandomUid=true; }   // no id given -> random (only works on an unbound scooter)
+    curKeyIdx=Math.floor(Math.random()*KEYS.length);
+    f=authInitFrame(uid,curKeyIdx);
+    log('auth init (key '+curKeyIdx+', uid '+(usingRandomUid?'random':uid)+')');
+  }
   await sendFrame(f);   // the 0x30 challenge reply is handled in handleFrame
 }
 
@@ -376,9 +396,17 @@ async function scan(){
 function onDisconnect(){ connected=false; authed=false; autoReadDone=false; lastMaxSpeed=null; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); resetTiles(); }
 function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(); }
 
+// The connect button stays disabled until we have something to authenticate with: a numeric account
+// userId (needed by any bound scooter), a pasted auth frame, or the explicit unbound opt-in.
+function hasAuthCreds(){
+  const uid=(($('uid-in')&&$('uid-in').value)||'').trim();
+  const hex=(($('authhex-in')&&$('authhex-in').value)||'').trim();
+  const unbound=$('unbound')&&$('unbound').checked;
+  return (/^\d+$/.test(uid) && parseInt(uid,10)>0) || hex.length>=8 || !!unbound;
+}
 function refreshButtons(){
   const on=connected;
-  { const c=$('btn-conn'); if(c) c.textContent = on ? t('btnDisconnect') : t('btnConnect'); }
+  { const c=$('btn-conn'); if(c){ c.textContent = on ? t('btnDisconnect') : t('btnConnect'); c.disabled = on ? false : !hasAuthCreds(); } }
   $('btn-unlock').disabled=!on; $('btn-scan').disabled=!on; $('country-in').disabled=!on;
   { const t=$('btn-locktoggle'); if(t){ t.disabled=!on; $('open-in').disabled=!on; $('locked-in').disabled=!on; } }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
@@ -441,6 +469,11 @@ function wireControls(){
   SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=>{ const el=s.sel?$(s.sel):null; s.send(el?(parseInt(el.value||'0',10)||0):0); }); });
   $('btn-copy-log').addEventListener('click', copyLog);
   $('btn-clear-log').addEventListener('click', clearLog);
+  // Account userId: prefill from storage, remember on edit, and gate the connect button on it.
+  { const u=$('uid-in'); if(u){ try{ const s=localStorage.getItem('navee.uid'); if(s) u.value=s; }catch(e){}
+      u.addEventListener('input', ()=>{ const v=u.value.replace(/[^0-9]/g,''); if(v!==u.value) u.value=v; try{ localStorage.setItem('navee.uid', u.value.trim()); }catch(e){} if(!connected) refreshButtons(); }); } }
+  ['authhex-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('input', ()=>{ if(!connected) refreshButtons(); }); });
+  { const cb=$('unbound'); if(cb) cb.addEventListener('change', ()=>{ if(!connected) refreshButtons(); }); }
 }
 
 // ---------- language ----------
