@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v16';
+const BUILD = 'v17';
 const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // account id is only a tag; a random one works
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
@@ -205,8 +205,10 @@ function decodeBattery(f){
   teleSeen();
   const charge=rd(p,1,1), volt=rd(p,2,4,false), curr=rd(p,6,4,false), health=rd(p,10,1), temp=rd(p,11,1), cyc=rd(p,13,2,false);
   if(charge!=null) setTile('batt', charge+' %');
-  if(volt!=null)   setTile('volt', (volt/100).toFixed(1)+' V');   // report is centivolt; verify on hardware
-  if(curr!=null)   setTile('curr', curr+' (roh)');
+  // App (DeviceBatteryInfoActivity.f0) shows this value verbatim as " mV" -> report is millivolt.
+  if(volt!=null)   setTile('volt', (volt/1000).toFixed(2)+' V');
+  // App (g0): bit 31 is a sign flag. Set -> discharge (negative); the low 31 bits are the mA magnitude.
+  if(curr!=null){ const mA = (curr & 0x80000000) ? -(curr & 0x7fffffff) : curr; setTile('curr', (mA/1000).toFixed(2)+' A'); }
   if(health!=null) setTile('health', health+' %');
   if(temp!=null)   setTile('temp', temp+' C');
   if(cyc!=null)    setTile('cycles', cyc);
