@@ -14,7 +14,8 @@
 //     IMPORTANT: on receive, byte[5] is an ERROR/STATUS code (0 = ok). The data block the
 //     app decodes starts at byte[6]. <len> counts errcode + data. (BleHandler.G, line ~260)
 //   Auth = challenge/response (byte-exact, unchanged):
-//     TX 0x30  55 AA 00 30 09 <keyIdx> <shareFlag> <s(userId)=8A + 48bitBE, 6B> 00 <cksum> FE FD
+//     TX 0x30  55 AA 00 30 09 <keyIdx> <shareFlag> <s(userId)=88 + 48bitBE, 6B> 00 <cksum> FE FD
+//              lead byte is 0x88 (TsExtractor.TS_STREAM_TYPE_DTS_HD=136), NOT 0x8A - ByteUtil.s
 //     RX 0x30  scooter returns a 16-byte challenge (data block)
 //     TX 0x31  55 AA 00 31 10 <AES-128-ECB-encrypt(challenge, keys[keyIdx])> <cksum> FE FD
 //     RX 0x31  errcode 0 => authenticated
@@ -30,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v25';
+const BUILD = 'v27';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -77,11 +78,16 @@ function readFrame(cmd){ const body=[0x55,0xAA,0x00,cmd]; return new Uint8Array(
 // WRITE frame: 55 AA 00 <cmd> <len> <payload...> <ck> FE FD (BleHandler.k single byte / l byte[])
 function writeFrame(cmd,payload){ payload=payload||[]; const body=[0x55,0xAA,0x00,cmd,payload.length,...payload]; return new Uint8Array([...body, ckSum(body),0xFE,0xFD]); }
 
-// s(userId,0x8A): 6 bytes = low 48-bit big-endian userId, top byte forced to 0x8A when zero (ByteUtil.s)
+// ByteUtil.s(userId, 0x88): 6 bytes big-endian of the low 48 bits of userId. The top byte (bits
+// 40-47) is kept only if it is 0x01-0x7F; otherwise (0x00, or a value with the high bit set) it is
+// replaced with 0x88 = TsExtractor.TS_STREAM_TYPE_DTS_HD (136). For a normal 32-bit account userId
+// the top byte is 0, so this yields 88 00 b3 b2 b1 b0. (The lead byte is 0x88, NOT 0x8A.)
 function s6(userId){
-  const b=new Uint8Array(6); let v=BigInt(userId>>>0);
+  let v = BigInt(Math.trunc(Number(userId))) & 0xffffffffffffn;
+  const b = new Uint8Array(6);
   for(let i=5;i>=0;i--){ b[i]=Number(v & 0xffn); v>>=8n; }
-  b[0]=0x8A; return b;
+  if(b[0]===0 || b[0]>=0x80) b[0]=0x88;
+  return b;
 }
 // 0x30 auth-init: payload = [keyIdx, shareFlag, ...s6, 0x00]  (len = 9). shareFlag 0 for a random uid.
 function authInitFrame(userId,keyIdx){ return writeFrame(CMD.AUTH_INIT, [keyIdx, 0x00, ...s6(userId), 0x00]); }
