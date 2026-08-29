@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v19';
+const BUILD = 'v20';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -283,7 +283,16 @@ async function connectDevice(dev){
   notifyCh.addEventListener('characteristicvaluechanged', onNotify);
   connected=true; authed=false; autoReadDone=false; setStatus('connected');
   log('connected to '+(device.name||device.id)); refreshButtons();
-  await sleep(150); await authenticate();
+  await sleep(150);
+  if($('skipauth') && $('skipauth').checked){
+    // Experimental: don't run our own 0x30/0x31. Assume the scooter is already in an authenticated
+    // session (e.g. the official app authenticated it in this power cycle) and just send commands.
+    authed=true; usingRandomUid=false; setStatus('connected');
+    log(t('logSkipAuth') || 'auth skipped - assuming the scooter is already unlocked via the official app');
+    refreshButtons(); autoRead(); maybeRunDeepAction();
+  } else {
+    await authenticate();
+  }
 }
 
 async function authenticate(){
@@ -296,7 +305,11 @@ async function authenticate(){
     const raw=(($('uid-in')&&$('uid-in').value)||'').trim();
     const ov=parseInt(raw,10);
     let uid;
-    if(raw!=='' && Number.isFinite(ov) && ov>0){ uid=ov; usingRandomUid=false; }
+    if(raw!=='' && Number.isFinite(ov) && ov>0){
+      uid=ov; usingRandomUid=false;
+      // The account userId is a signed 32-bit int (UserSession.userId). Anything larger cannot be it.
+      if(uid>2147483647) log(t('logUidRange') || ('note: the account userId is a 32-bit number (max 2147483647); '+raw+' is too large to be a valid userId'));
+    }
     else { uid=AUTO_UID; usingRandomUid=true; }   // no id given -> random (only works on an unbound scooter)
     curKeyIdx=Math.floor(Math.random()*KEYS.length);
     f=authInitFrame(uid,curKeyIdx);
@@ -402,7 +415,8 @@ function hasAuthCreds(){
   const uid=(($('uid-in')&&$('uid-in').value)||'').trim();
   const hex=(($('authhex-in')&&$('authhex-in').value)||'').trim();
   const unbound=$('unbound')&&$('unbound').checked;
-  return (/^\d+$/.test(uid) && parseInt(uid,10)>0) || hex.length>=8 || !!unbound;
+  const skip=$('skipauth')&&$('skipauth').checked;
+  return (/^\d+$/.test(uid) && parseInt(uid,10)>0) || hex.length>=8 || !!unbound || !!skip;
 }
 function refreshButtons(){
   const on=connected;
@@ -489,7 +503,7 @@ function wireControls(){
   { const u=$('uid-in'); if(u){ try{ const s=localStorage.getItem('navee.uid'); if(s) u.value=s; }catch(e){}
       u.addEventListener('input', ()=>{ const v=u.value.replace(/[^0-9]/g,''); if(v!==u.value) u.value=v; try{ localStorage.setItem('navee.uid', u.value.trim()); }catch(e){} if(!connected) refreshButtons(); }); } }
   ['authhex-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('input', ()=>{ if(!connected) refreshButtons(); }); });
-  { const cb=$('unbound'); if(cb) cb.addEventListener('change', ()=>{ if(!connected) refreshButtons(); }); }
+  ['unbound','skipauth'].forEach(id=>{ const cb=$(id); if(cb) cb.addEventListener('change', ()=>{ if(!connected) refreshButtons(); }); });
 }
 
 // ---------- language ----------
@@ -626,6 +640,7 @@ const HELP = {
   country: ['s4Title', 'countryHelp'],
   account: ['accountTitle', 'accountHelp'],
   authhex: ['authhexTitle', 'authhexHelp'],
+  skipauth: ['skipauthTitle', 'skipauthHelp'],
   disclaimer: ['footDisclaimer', 'disclaimerText'],
 };
 function openHelp(key){ const m=HELP[key]; if(!m) return; const dlg=$('help'); if(!dlg) return; $('help-title').textContent=t(m[0]); $('help-body').textContent=t(m[1]); if(typeof dlg.showModal==='function') dlg.showModal(); }
