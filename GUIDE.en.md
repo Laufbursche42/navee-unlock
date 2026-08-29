@@ -22,9 +22,7 @@ Important:
 - The app never shows this number, you read it once. After that the tool remembers it in the browser, so you only ever do this a single time.
 - The number **never changes**. Only a different NAVEE account has a different number.
 
-You are looking for the field userId in the response of the login call:
-
-![Schematic of the login response with the userId highlighted](guide-userid-login.en.svg)
+You are looking for the field userId, a plain number, in the response of the login call.
 
 ### iPhone (easiest, no computer at all)
 
@@ -47,8 +45,6 @@ BLE variant (most robust, no root needed):
 3. Get the log: Developer options -> bug report, or via adb on a PC.
 4. Open the log in Wireshark and find the write to characteristic b002 that starts with 55aa0030. Copy the full hex string up to fefd.
 5. Paste it in the tool under Advanced into the Auth frame (hex) field. The frame already contains your userId, so you do not need to decode the number.
-
-![Layout of the 0x30 auth frame with the userId bytes](guide-userid-bleframe.en.svg)
 
 Network variant:
 

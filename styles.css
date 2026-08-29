@@ -155,7 +155,6 @@ dialog::backdrop { background: var(--backdrop); }
 .doc-body pre { background: var(--field); border: 1px solid var(--line); border-radius: 8px;
   padding: 10px 12px; margin: 0 0 12px; overflow-x: auto; }
 .doc-body pre code { border: 0; background: none; padding: 0; font-size: 12px; line-height: 1.6; }
-.doc-img { display: block; max-width: 100%; height: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; }
 .doc-body hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
 .doc-body blockquote { margin: 0 0 12px; padding-left: 11px; color: var(--muted);
   border-left: 2px solid var(--line); }
