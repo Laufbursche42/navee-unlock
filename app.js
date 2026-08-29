@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v27';
+const BUILD = 'v28';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -106,7 +106,25 @@ function parseHexFrame(s){
 }
 
 // ---------- BLE ----------
-let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false, lastMaxSpeed=null, usingRandomUid=false;
+let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false, lastMaxSpeed=null, usingRandomUid=false, phase2Sent=false, afterAuthDone=false;
+// After the challenge/response succeeds the app runs a fixed routine: time sync (0x6F sub 6) then the
+// status reads. We mirror it once per connection.
+async function afterAuth(){
+  if(afterAuthDone) return; afterAuthDone=true;
+  await writeTimeSync();
+  autoRead();
+  maybeRunDeepAction();
+}
+// 0x6F sub-command 6 = clock sync. Payload = 06 + local epoch seconds (UTC + timezone offset), 4 bytes
+// big-endian, exactly like BleHandler time sync (ByteUtil.u(...,true)).
+async function writeTimeSync(){
+  try{
+    const local = Math.floor(Date.now()/1000) - (new Date().getTimezoneOffset()*60);
+    const t=[(local>>>24)&0xff,(local>>>16)&0xff,(local>>>8)&0xff,local&0xff];
+    await sendFrame(writeFrame(0x6F,[0x06,...t]));
+    log('time sync sent (0x6F sub 6)');
+  }catch(e){ log('time sync failed: '+(e&&e.message||e)); }
+}
 // Read status once, automatically, right after authentication so the live values and the
 // model-specific settings appear without the user pressing Read.
 function autoRead(){ if(autoReadDone) return; autoReadDone=true; setTimeout(()=>{ if(authed) readStatus(); }, 500); }
@@ -118,12 +136,13 @@ function waitReport(cmd, ms=3000){
 async function sendFrame(bytes){
   if(!writeCh) throw new Error('not connected');
   log('TX '+hexs(bytes));
-  // Match the official app exactly: it writes WITH response (FastBle WRITE_TYPE_DEFAULT, one packet).
-  // Some scooter firmware only accepts control frames as a write request, not a write command, and
-  // answers a write-without-response with errcode 0xFF. So prefer a write-with-response here.
+  // Match the app: FastBle never forces a write type (BleConnector.q sets no write type), and b002
+  // advertises write-without-response (the DFU path explicitly sets NO_RESPONSE on b002), so the app
+  // writes control frames as a write COMMAND (no response). The real reply always comes back over the
+  // b003 notify, not the GATT write ack. So prefer write-without-response, with-response as fallback.
+  if(writeCh.writeValueWithoutResponse){ try{ await writeCh.writeValueWithoutResponse(bytes); return; }catch(e){} }
   if(writeCh.writeValueWithResponse){ await writeCh.writeValueWithResponse(bytes); }
-  else if(writeCh.writeValue){ await writeCh.writeValue(bytes); }
-  else { await writeCh.writeValueWithoutResponse(bytes); }
+  else await writeCh.writeValue(bytes);
 }
 
 let rx=[];
@@ -157,17 +176,23 @@ async function handleFrame(f){
       else log('auth error code '+err);
       return;
     }
-    if(data.length>=16){                   // challenge present
+    if(data.length>=16){                   // challenge present -> AES response
       const challenge=data.slice(data.length-16);
       log('auth challenge received, responding (key '+curKeyIdx+')');
       await sendFrame(await authRespFrame(challenge, curKeyIdx));
-    } else {                               // short ack = session already up
-      authed=true; setStatus('connected'); refreshButtons(); log('authenticated (ack)'); autoRead(); maybeRunDeepAction();
+    } else {                               // short ack (no challenge) = fully authenticated
+      if(!authed){ authed=true; setStatus('connected'); refreshButtons(); log('authenticated'); }
+      await afterAuth();                    // time sync + status reads, like the app
     }
     return;
   }
-  if(cmd===CMD.AUTH_RESP){                  // 0x31 result
-    if(err===0){ authed=true; setStatus('connected'); refreshButtons(); log('authenticated'); autoRead(); maybeRunDeepAction(); }
+  if(cmd===CMD.AUTH_RESP){                  // 0x31 result (challenge accepted)
+    if(err===0){
+      // Phase 2, exactly like the app: after a good 0x31 it sends 0x30 once more; the scooter then
+      // answers with a short 0x30 (no challenge) which we treat as fully authenticated above.
+      if(!phase2Sent){ phase2Sent=true; log('auth response accepted, phase-2 init'); await sendPhase2Init(); }
+      else { if(!authed){ authed=true; setStatus('connected'); refreshButtons(); log('authenticated'); } await afterAuth(); }
+    }
     else log('auth response rejected, code '+err);
     return;
   }
@@ -297,27 +322,35 @@ async function connectDevice(dev){
   await sleep(150); await authenticate();
 }
 
+// Build the 0x30 AUTH_INIT frame from the pasted hex frame or from the userId field. Returns null only
+// when a hex frame was pasted but is unparseable. A fresh random keyIdx is drawn each call (as the app
+// does via SecureRandom H(0,4)), so phase 1 and phase 2 use independent keys.
+function buildInitFrame(){
+  const hexIn=(($('authhex-in')&&$('authhex-in').value)||'').trim();
+  if(hexIn){ const f=parseHexFrame(hexIn); if(!f) return null; curKeyIdx=f[5]??0; usingRandomUid=false; return f; }
+  const raw=(($('uid-in')&&$('uid-in').value)||'').trim();
+  const ov=parseInt(raw,10);
+  let uid;
+  if(raw!=='' && Number.isFinite(ov) && ov>0){
+    uid=ov; usingRandomUid=false;
+    if(uid>2147483647) log(t('logUidRange') || ('note: the account userId is a 32-bit number (max 2147483647); '+raw+' is too large to be a valid userId'));
+  } else { uid=AUTO_UID; usingRandomUid=true; }   // no id given -> random (only works on an unbound scooter)
+  curKeyIdx=Math.floor(Math.random()*KEYS.length);
+  return authInitFrame(uid,curKeyIdx);
+}
 async function authenticate(){
-  const hexIn=$('authhex-in').value.trim();
-  let f;
-  if(hexIn){                                // paste the official app's own 0x30 frame (carries the real userId + keyIdx)
-    f=parseHexFrame(hexIn); if(!f){ log('invalid auth hex'); return; }
-    curKeyIdx=f[5]??0; usingRandomUid=false; log('sending pasted auth frame (key '+curKeyIdx+')');
-  } else {
-    const raw=(($('uid-in')&&$('uid-in').value)||'').trim();
-    const ov=parseInt(raw,10);
-    let uid;
-    if(raw!=='' && Number.isFinite(ov) && ov>0){
-      uid=ov; usingRandomUid=false;
-      // The account userId is a signed 32-bit int (UserSession.userId). Anything larger cannot be it.
-      if(uid>2147483647) log(t('logUidRange') || ('note: the account userId is a 32-bit number (max 2147483647); '+raw+' is too large to be a valid userId'));
-    }
-    else { uid=AUTO_UID; usingRandomUid=true; }   // no id given -> random (only works on an unbound scooter)
-    curKeyIdx=Math.floor(Math.random()*KEYS.length);
-    f=authInitFrame(uid,curKeyIdx);
-    log('auth init (key '+curKeyIdx+', uid '+(usingRandomUid?'random':uid)+')');
-  }
+  phase2Sent=false; afterAuthDone=false;
+  const f=buildInitFrame();
+  if(!f){ log('invalid auth hex'); return; }
+  log('auth init (key '+curKeyIdx+', uid '+(usingRandomUid?'random':((($('uid-in')&&$('uid-in').value)||'').trim()))+')');
   await sendFrame(f);   // the 0x30 challenge reply is handled in handleFrame
+}
+// Phase 2: after a good 0x31 the app sends 0x30 once more (fresh keyIdx). Reuses the same userId/hex.
+async function sendPhase2Init(){
+  const f=buildInitFrame();
+  if(!f) return;
+  log('auth phase-2 init (key '+curKeyIdx+')');
+  await sendFrame(f);
 }
 
 async function readStatus(){
@@ -408,7 +441,7 @@ async function scan(){
   else log('scan: no readable maxSpeed - check the raw report bytes in the log');
 }
 
-function onDisconnect(){ connected=false; authed=false; autoReadDone=false; lastMaxSpeed=null; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); resetTiles(); }
+function onDisconnect(){ connected=false; authed=false; autoReadDone=false; phase2Sent=false; afterAuthDone=false; lastMaxSpeed=null; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); resetTiles(); }
 function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(); }
 
 // The connect button stays disabled until we have something to authenticate with: a numeric account
