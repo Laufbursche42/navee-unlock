@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v18';
+const BUILD = 'v19';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -457,7 +457,23 @@ function applyReportToSettings(p){
 }
 function resetSettings(){ SETTINGS.forEach(s=>{ const row=$('row-'+s.key); if(row) row.hidden=true; }); const e=$('more-empty'); if(e) e.hidden=false; }
 
-function copyLog(){ const el=$('log'); if(!el) return; navigator.clipboard && navigator.clipboard.writeText(el.textContent); }
+// Copy the log with the line endings the user's OS expects: CRLF on Windows (Notepad and friends
+// only break on \r\n), plain LF on macOS/Linux. Falls back to a hidden textarea where the async
+// clipboard API is unavailable.
+function osNewline(){
+  const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent || '';
+  return /win/i.test(p) ? '\r\n' : '\n';
+}
+function copyLog(){
+  const el=$('log'); if(!el) return;
+  const text=(el.textContent||'').replace(/\r?\n/g, osNewline());
+  const done=()=>{ const b=$('btn-copy-log'); if(b){ const o=b.textContent; b.textContent=t('btnCopied')||'OK'; setTimeout(()=>{ b.textContent=o; }, 1200); } };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text,done)); }
+  else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done){
+  try{ const ta=document.createElement('textarea'); ta.value=text; ta.setAttribute('readonly',''); ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); if(done) done(); }catch(e){ log('copy failed'); }
+}
 function clearLog(){ const el=$('log'); if(el) el.textContent=''; }
 
 function wireControls(){

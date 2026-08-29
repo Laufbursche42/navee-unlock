@@ -115,6 +115,7 @@ window.I18N = {
 
     s6Title: "Protokoll-Log",
     btnCopyLog: "Log kopieren",
+    btnCopied: "Kopiert",
     btnClearLog: "Log leeren",
     logTxLegend: "TX / blau = gesendet",
     logRxLegend: "RX / braun = empfangen",
@@ -253,6 +254,7 @@ window.I18N = {
 
     s6Title: "Protocol log",
     btnCopyLog: "Copy log",
+    btnCopied: "Copied",
     btnClearLog: "Clear log",
     logTxLegend: "TX / blue = sent",
     logRxLegend: "RX / brown = received",
