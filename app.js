@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v22';
+const BUILD = 'v23';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -548,6 +548,8 @@ const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 const slug = s => s.toLowerCase().trim().replace(/[^\w\sÀ-ɏ-]/g,'').replace(/ /g,'-');
 function mdToHtml(src){
   const inline = s => escHtml(s)
+    // images: only same-origin relative paths (no http/data), keeps CSP img-src 'self' honest
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,(all,alt,src)=> /^[\w./-]+$/.test(src) ? `<img src="${src}" alt="${alt}" class="doc-img" loading="lazy">` : all)
     .replace(/`([^`]+)`/g,'<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,(all,text,href)=>{
