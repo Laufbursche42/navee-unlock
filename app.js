@@ -30,7 +30,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v24';
+const BUILD = 'v25';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -112,7 +112,12 @@ function waitReport(cmd, ms=3000){
 async function sendFrame(bytes){
   if(!writeCh) throw new Error('not connected');
   log('TX '+hexs(bytes));
-  try{ await writeCh.writeValueWithoutResponse(bytes); }catch{ await writeCh.writeValue(bytes); }
+  // Match the official app exactly: it writes WITH response (FastBle WRITE_TYPE_DEFAULT, one packet).
+  // Some scooter firmware only accepts control frames as a write request, not a write command, and
+  // answers a write-without-response with errcode 0xFF. So prefer a write-with-response here.
+  if(writeCh.writeValueWithResponse){ await writeCh.writeValueWithResponse(bytes); }
+  else if(writeCh.writeValue){ await writeCh.writeValue(bytes); }
+  else { await writeCh.writeValueWithoutResponse(bytes); }
 }
 
 let rx=[];
