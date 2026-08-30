@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v30';
+const BUILD = 'v31';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -399,6 +399,15 @@ async function doToggle(){
   await writeMaxSpeed(target);
   setTimeout(()=>{ if(authed) sendFrame(readFrame(CMD.READ_PARAMS)); }, 400);   // read back so the button flips
 }
+// Direct max-speed test (0x6E sub 01) with an explicit value, then read the params back so the
+// t-max tile updates. This is the decisive hardware check: does writing a higher top speed actually
+// move the cap, or does the firmware clamp it to the SKU limit regardless of the stored value.
+async function doMaxSpeedTest(){
+  if(!authed){ log('not authenticated'); return; }
+  const v = parseInt(($('mst-in')||{}).value||'0',10)||0;
+  await writeMaxSpeed(v);
+  setTimeout(()=>{ if(authed) sendFrame(readFrame(CMD.READ_PARAMS)); }, 400);   // read back so t-max reflects it
+}
 // Direct startup speed (0x6A). value 0 = zero-start, higher = push-to-start threshold.
 async function writeStartSpeed(v){
   if(!authed){ log('not authenticated'); return; }
@@ -457,6 +466,7 @@ function refreshButtons(){
   { const c=$('btn-conn'); if(c){ c.textContent = on ? t('btnDisconnect') : t('btnConnect'); c.disabled = on ? false : !hasAuthCreds(); } }
   $('btn-unlock').disabled=!on; $('btn-scan').disabled=!on; $('country-in').disabled=!on;
   { const t=$('btn-locktoggle'); if(t){ t.disabled=!on; $('open-in').disabled=!on; $('locked-in').disabled=!on; } }
+  { const b=$('btn-mst'); if(b){ b.disabled=!on; const i=$('mst-in'); if(i) i.disabled=!on; } }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
 }
 
@@ -529,6 +539,7 @@ function wireControls(){
   $('btn-unlock').addEventListener('click', ()=> writeCountry(parseInt($('country-in').value||'0',10)||0));
   $('btn-scan').addEventListener('click', scan);
   $('btn-locktoggle').addEventListener('click', doToggle);
+  { const b=$('btn-mst'); if(b) b.addEventListener('click', doMaxSpeedTest); }
   ['open-in','locked-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', ()=>{ persistDrossel(); updateToggle(); }); });
   SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=>{ const el=s.sel?$(s.sel):null; s.send(el?(parseInt(el.value||'0',10)||0):0); }); });
   $('btn-copy-log').addEventListener('click', copyLog);

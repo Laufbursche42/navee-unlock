@@ -47,6 +47,10 @@ window.I18N = {
     drHint: "Ein Knopf: Sperren drosselt auf den unteren Wert, Entsperren öffnet auf den oberen. Der Knopf zeigt die nächste Aktion. Details über das Fragezeichen.",
     drHelp: "Die Seite schreibt die Höchstgeschwindigkeit (Befehl 0x6E). Entsperren setzt sie auf den offenen Wert, Sperren auf den gedrosselten. Beide Werte trägst du oben ein, der Browser merkt sie sich. Der Knopf zeigt die nächste sinnvolle Aktion, abgeleitet aus der zuletzt gelesenen Höchstgeschwindigkeit. Unterschied zu den App-Werten: Die App kennt zwei Dinge. Die Höchstgeschwindigkeit ist die echte Obergrenze, wie schnell der Scooter überhaupt fährt, das ist der Hebel zum Drosseln und Öffnen. Daneben gibt es ein Custom-Limit (0x6B), einen selbst gesetzten Deckel unterhalb der Höchstgeschwindigkeit, zum Beispiel für Anfänger. Fürs Sperren und Entsperren nutzen wir die Höchstgeschwindigkeit.",
 
+    mstTitle: "Max-Speed direkt schreiben (Test)",
+    mstLabel: "Höchstgeschwindigkeit (km/h)",
+    mstHint: "Direkter Test: schreibt die Höchstgeschwindigkeit per Befehl 0x6E sub 01 genau mit dem eingetragenen km/h-Wert und liest danach die Parameter zurück. Fürs Prüfen am echten Gerät erst 60 schreiben, kurz fahren, dann 70. Ändert sich weder der zurückgelesene max-Wert noch die reale Geschwindigkeit, klemmt die Firmware das Limit unabhängig vom geschriebenen Wert ab.",
+
     moreTitle: "Weitere Einstellungen",
     moreEmpty: "Nach dem Verbinden erscheinen hier nur die Einstellungen, die dein Scooter tatsächlich unterstützt.",
     btnSend: "Setzen",
@@ -186,6 +190,10 @@ window.I18N = {
     btnUnlock2: "Unlock (open)",
     drHint: "One button: Lock throttles to the lower value, Unlock opens to the higher one. The button shows the next action. Details via the question mark.",
     drHelp: "The page writes the top speed (command 0x6E). Unlock sets it to the open value, Lock to the throttled one. You enter both values above and the browser remembers them. The button shows the next sensible action, derived from the last top speed read. Difference to the app values: the app has two things. The top speed is the real ceiling, how fast the scooter goes at all, that is the lever for throttling and opening. There is also a custom limit (0x6B), a self-set cap below the top speed, for example for a beginner. For lock and unlock we use the top speed.",
+
+    mstTitle: "Write max speed directly (test)",
+    mstLabel: "Top speed (km/h)",
+    mstHint: "Direct test: writes the top speed via command 0x6E sub 01 with exactly the km/h value entered, then reads the parameters back. For the hardware check write 60 first, ride briefly, then 70. If neither the read-back max nor the real speed changes, the firmware clamps the limit regardless of the written value.",
 
     moreTitle: "More settings",
     moreEmpty: "After connecting, only the settings your scooter actually supports show up here.",
