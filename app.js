@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v37';
+const BUILD = 'v38';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -106,7 +106,7 @@ function parseHexFrame(s){
 }
 
 // ---------- BLE ----------
-let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false, lastMaxSpeed=null, usingRandomUid=false, phase2Sent=false, afterAuthDone=false, lastSerialData=null;
+let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false, lastMaxSpeed=null, usingRandomUid=false, phase2Sent=false, afterAuthDone=false, lastSerialData=null, lastLockState=null;
 // After the challenge/response succeeds the app runs a fixed routine: time sync (0x6F sub 6) then the
 // status reads. We mirror it once per connection.
 async function afterAuth(){
@@ -256,14 +256,17 @@ function factoryPayload(f){ const len=f[4]||0; return f.slice(5, 5+len); }
 function decodeLock(f){
   const p=factoryPayload(f);
   if(!p.length){ log('lock (BE): no payload in '+hexs(f)); return; }
-  const state=p[p.length-1];
-  log('config-write lock (BE): 0x'+state.toString(16)+' -> '+(state===0?'WRITABLE (unlocked)':'LOCKED (no BLE region write on this unit)'));
+  const state=p[p.length-1];   // payload is [status, state]; state is the last byte
+  lastLockState=state;
+  log('config-write lock (BE): 0x'+state.toString(16)+' -> '+(state===0
+    ? 'WRITABLE (unlocked)'
+    : 'LOCKED (controller drops config writes; no BLE clear exists -> region change needs hardware/SWD)'));
 }
 // 0xB9 reply: live controller config (first 17 bytes = config block; region letters at 8-9).
 function decodeFactoryConfig(f){
   const p=factoryPayload(f);
   let s=''; for(const c of p){ if(c>=0x20&&c<0x7f) s+=String.fromCharCode(c); } s=s.trim();
-  const region=(p.length>=10)?String.fromCharCode(p[8])+String.fromCharCode(p[9]):'??';
+  const region=(s.length>=10)?s.substring(8,10):'??';   // region letters are chars 8-9 of the serial string
   log('live config (B9): "'+s+'" region='+region+' | back up this line before any write');
   const sn=(($('t-sn')&&$('t-sn').textContent)||'').trim();
   if(sn && sn!=='-'){
@@ -476,6 +479,7 @@ async function writeRegionCode(code){
 }
 async function doRegionToggle(){
   if(!authed){ log('not authenticated'); return; }
+  if(lastLockState===1){ log('controller config-write is LOCKED (BE=0x1) -> this write would be dropped; region change on this unit needs hardware (SWD). Aborting.'); return; }
   persistDrossel();
   if(regIsUnlocked()){ await writeRegionCode(regLockCode()); await writeMaxSpeed(drLockedVal()); }
   else { await writeRegionCode(regUnlockCode()); await writeMaxSpeed(drOpenVal()); }
