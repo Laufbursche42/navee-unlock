@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v28';
+const BUILD = 'v29';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -428,7 +428,7 @@ async function writeSound(v){
 async function scan(){
   if(!authed){ log('not authenticated'); return; }
   log('scanning country values 0..25 (reading maxSpeed back)...');
-  const best={val:null,max:-1};
+  let best={val:null,max:-1};
   for(let v=0; v<=25; v++){
     await writeCountry(v); await sleep(400);
     const rep=await (async()=>{ const p=sendFrame(readFrame(CMD.READ_PARAMS)); const r=waitReport(CMD.REPORT,1500); await p; return r; })();
