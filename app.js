@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v38';
+const BUILD = 'v39';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -468,13 +468,18 @@ async function writeRegionCode(code){
   const before = String.fromCharCode(cfg[8])+String.fromCharCode(cfg[9]);
   cfg[8]=code.charCodeAt(0); cfg[9]=code.charCodeAt(1);
   log('region write '+before+' -> '+code+' (factory 0xA2 config write)');
-  await sendFrame(factoryFrame(0xA0,[0x01]));    // enter line-test so the readback echoes to BLE
-  await sleep(500);
-  await sendFrame(factoryFrame(0xA2, cfg));      // config write, full 17 bytes (controller sub 0x16)
-  await sleep(500);
-  await sendFrame(factoryFrame(0xB9));           // read the live config back (decodeFactoryConfig logs it)
-  await sleep(1500);
-  await sendFrame(readFrame(CMD.READ_SN));       // also refresh the 0x74 tile
+  try{
+    await sendFrame(factoryFrame(0xA0,[0x01]));   // enter line-test so the readback echoes to BLE (display goes dark)
+    await sleep(500);
+    await sendFrame(factoryFrame(0xA2, cfg));      // config write, full 17 bytes (controller sub 0x16)
+    await sleep(500);
+    await sendFrame(factoryFrame(0xB9));           // read the live config back (decodeFactoryConfig logs it)
+    await sleep(1500);
+    await sendFrame(readFrame(CMD.READ_SN));       // also refresh the 0x74 tile
+    await sleep(400);
+  } finally {
+    await sendFrame(factoryFrame(0xA0,[0x00]));   // ALWAYS exit line-test -> display back on
+  }
   setTimeout(()=>{ log('write sent -> check the B9 line above: region '+code+' there means it took (power-cycle and test); unchanged means the controller rejected it (lock) or 0x74 reads the serial'); updateRegionToggle(); }, 900);
 }
 async function doRegionToggle(){
@@ -494,14 +499,19 @@ async function doRawSend(){
 // config-write lock (BE) and the live config (B9). Nothing is written. Line-test clears on power-cycle.
 async function doDiag(){
   if(!writeCh){ log('not connected'); return; }
-  log('--- diagnose (read-only): A0 01 -> BE -> B9 ---');
-  await sendFrame(factoryFrame(0xA0,[0x01]));    // enter BLE line-test -> readback replies now echo to BLE
-  await sleep(700);
-  await sendFrame(factoryFrame(0xBE));           // read config-write lock (controller sub 0x2d)
-  await sleep(1500);                             // async: reply arrives after the controller round-trip
-  await sendFrame(factoryFrame(0xB9));           // read live config (controller sub 0x29)
-  await sleep(1600);
-  log('--- diagnose done (line-test mode stays until power-cycle; harmless) ---');
+  log('--- diagnose (read-only): A0 01 -> BE -> B9 -> A0 00 ---');
+  log('note: line-test blanks the display; it is turned back on at the end (A0 00)');
+  try{
+    await sendFrame(factoryFrame(0xA0,[0x01]));   // enter BLE line-test -> readback replies now echo to BLE (display goes dark)
+    await sleep(700);
+    await sendFrame(factoryFrame(0xBE));          // read config-write lock (controller sub 0x2d)
+    await sleep(1500);                            // async: reply arrives after the controller round-trip
+    await sendFrame(factoryFrame(0xB9));          // read live config (controller sub 0x29)
+    await sleep(1600);
+  } finally {
+    await sendFrame(factoryFrame(0xA0,[0x00]));   // ALWAYS exit line-test -> display back on
+  }
+  log('--- diagnose done (line-test exited; display back on) ---');
 }
 
 
