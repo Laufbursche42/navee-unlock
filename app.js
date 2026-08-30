@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v34';
+const BUILD = 'v35';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -442,13 +442,19 @@ async function writeRegionCode(code){
   await sendFrame(factoryFrame(0xA2, cfg));
   await sleep(500);
   await sendFrame(readFrame(CMD.READ_SN));      // verify: re-read serial/config
-  setTimeout(()=>{ const r=curRegion(); if(r===code) log('region confirmed: '+r+' -> now power-cycle the scooter, then test'); else log('region still '+r+' -> write blocked (factory lock) or pairing needed; see notes'); updateRegionToggle(); }, 800);
+  setTimeout(()=>{ const r=curRegion(); if(r===code) log('region now reads '+r+' -> power-cycle the scooter, reconnect, then test'); else log('sent plus acked; live read still '+r+' (meter caches it) -> power-cycle the scooter, reconnect, then re-check region'); updateRegionToggle(); }, 800);
 }
 async function doRegionToggle(){
   if(!authed){ log('not authenticated'); return; }
   persistDrossel();
   if(regIsUnlocked()){ await writeRegionCode(regLockCode()); await writeMaxSpeed(drLockedVal()); }
   else { await writeRegionCode(regUnlockCode()); await writeMaxSpeed(drOpenVal()); }
+}
+async function doRawSend(){
+  if(!writeCh){ log('not connected'); return; }
+  const bytes = parseHexFrame((($('raw-in')||{}).value)||'');
+  if(!bytes){ log('raw: invalid hex'); return; }
+  try{ await sendFrame(bytes); }catch(e){ log('raw send failed: '+(e&&e.message||e)); }
 }
 
 
@@ -467,6 +473,7 @@ function refreshButtons(){
   const on=connected;
   { const c=$('btn-conn'); if(c){ c.textContent = on ? t('btnDisconnect') : t('btnConnect'); c.disabled = on ? false : !hasAuthCreds(); } }
   { const b=$('btn-regiontoggle'); if(b){ b.disabled=!on; ['region-open-in','region-lock-in','open-in','locked-in'].forEach(id=>{ const i=$(id); if(i) i.disabled=!on; }); } }
+  { const b=$('btn-raw'); if(b){ b.disabled=!on; const i=$('raw-in'); if(i) i.disabled=!on; } }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
 }
 
@@ -537,6 +544,7 @@ function clearLog(){ const el=$('log'); if(el) el.textContent=''; }
 function wireControls(){
   $('btn-conn').addEventListener('click', ()=> connected ? disconnect() : connect());
   { const b=$('btn-regiontoggle'); if(b) b.addEventListener('click', doRegionToggle); }
+  { const b=$('btn-raw'); if(b) b.addEventListener('click', doRawSend); }
   ['region-open-in','region-lock-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', updateRegionToggle); });
   ['open-in','locked-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', persistDrossel); });
   SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=>{ const el=s.sel?$(s.sel):null; s.send(el?(parseInt(el.value||'0',10)||0):0); }); });
