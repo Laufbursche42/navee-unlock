@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v36';
+const BUILD = 'v37';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -205,6 +205,9 @@ async function handleFrame(f){
   if(cmd===CMD.READ_FW) decodeFirmware(f);
   if(cmd===0x90||cmd===0x91||cmd===0x92) decodeRealtime(cmd,f);
   if(cmd===0xA2) log('factory config-write ack (0xA2) received');
+  if(cmd===0xA0) log('factory line-test ack (0xA0)');
+  if(cmd===0xBE) decodeLock(f);
+  if(cmd===0xB9) decodeFactoryConfig(f);
 }
 
 // read len bytes from p at off; z2=true big-endian, z2=false little-endian (matches ByteUtil.p)
@@ -246,6 +249,29 @@ function decodeSN(f){
   sn=sn.trim();
   if(sn.length>=10){ const area=sn.substring(8,10); $('t-sn').textContent=sn; $('t-region').textContent=area; $('t-sku').textContent=skuOf(area); log('serial '+sn+' -> region '+area+' (SKU '+skuOf(area)+')'); updateRegionToggle(); }
   else log('SN report: '+hexs(f));
+}
+// Factory reply payload: 55 AA 00 <cmd> <len> <payload...> <cksum> AE AD (payload = len bytes at [5]).
+function factoryPayload(f){ const len=f[4]||0; return f.slice(5, 5+len); }
+// 0xBE reply: config-write lock state (bldc DAT_20000756). Per the controller code 0 = writable, non-0 = locked.
+function decodeLock(f){
+  const p=factoryPayload(f);
+  if(!p.length){ log('lock (BE): no payload in '+hexs(f)); return; }
+  const state=p[p.length-1];
+  log('config-write lock (BE): 0x'+state.toString(16)+' -> '+(state===0?'WRITABLE (unlocked)':'LOCKED (no BLE region write on this unit)'));
+}
+// 0xB9 reply: live controller config (first 17 bytes = config block; region letters at 8-9).
+function decodeFactoryConfig(f){
+  const p=factoryPayload(f);
+  let s=''; for(const c of p){ if(c>=0x20&&c<0x7f) s+=String.fromCharCode(c); } s=s.trim();
+  const region=(p.length>=10)?String.fromCharCode(p[8])+String.fromCharCode(p[9]):'??';
+  log('live config (B9): "'+s+'" region='+region+' | back up this line before any write');
+  const sn=(($('t-sn')&&$('t-sn').textContent)||'').trim();
+  if(sn && sn!=='-'){
+    const match = !!s && (s.indexOf(sn)>=0 || sn.indexOf(s)>=0);
+    log('B9 vs 0x74 serial "'+sn+'": '+(match
+      ? 'MATCH -> 0x74 mirrors the config block; region IS BLE-writable via A2 when unlocked'
+      : 'MISMATCH -> 0x74 reads the serial block; region NOT BLE-writable (wired/SWD only)'));
+  }
 }
 // Battery report (cmd 0x72). Offsets from DeviceBatteryInfo (BleHandler.G case 114).
 function decodeBattery(f){
@@ -439,12 +465,14 @@ async function writeRegionCode(code){
   const before = String.fromCharCode(cfg[8])+String.fromCharCode(cfg[9]);
   cfg[8]=code.charCodeAt(0); cfg[9]=code.charCodeAt(1);
   log('region write '+before+' -> '+code+' (factory 0xA2 config write)');
-  await sendFrame(factoryFrame(0xA2, cfg));      // write config to controller
-  await sleep(400);
-  await sendFrame(factoryFrame(0xB9));           // force the meter to re-read the controller config (sub 0x29)
-  await sleep(600);
-  await sendFrame(readFrame(CMD.READ_SN));       // verify
-  setTimeout(()=>{ const r=curRegion(); if(r===code) log('region now reads '+r+' -> power-cycle the scooter, then test'); else log('region still '+r+' after forced re-read -> controller did not persist it (likely config-write lock; no BLE clear known)'); updateRegionToggle(); }, 900);
+  await sendFrame(factoryFrame(0xA0,[0x01]));    // enter line-test so the readback echoes to BLE
+  await sleep(500);
+  await sendFrame(factoryFrame(0xA2, cfg));      // config write, full 17 bytes (controller sub 0x16)
+  await sleep(500);
+  await sendFrame(factoryFrame(0xB9));           // read the live config back (decodeFactoryConfig logs it)
+  await sleep(1500);
+  await sendFrame(readFrame(CMD.READ_SN));       // also refresh the 0x74 tile
+  setTimeout(()=>{ log('write sent -> check the B9 line above: region '+code+' there means it took (power-cycle and test); unchanged means the controller rejected it (lock) or 0x74 reads the serial'); updateRegionToggle(); }, 900);
 }
 async function doRegionToggle(){
   if(!authed){ log('not authenticated'); return; }
@@ -457,6 +485,19 @@ async function doRawSend(){
   const bytes = parseHexFrame((($('raw-in')||{}).value)||'');
   if(!bytes){ log('raw: invalid hex'); return; }
   try{ await sendFrame(bytes); }catch(e){ log('raw send failed: '+(e&&e.message||e)); }
+}
+// Read-only factory diagnostic: enter line-test (this un-gates the readback echo), then read the
+// config-write lock (BE) and the live config (B9). Nothing is written. Line-test clears on power-cycle.
+async function doDiag(){
+  if(!writeCh){ log('not connected'); return; }
+  log('--- diagnose (read-only): A0 01 -> BE -> B9 ---');
+  await sendFrame(factoryFrame(0xA0,[0x01]));    // enter BLE line-test -> readback replies now echo to BLE
+  await sleep(700);
+  await sendFrame(factoryFrame(0xBE));           // read config-write lock (controller sub 0x2d)
+  await sleep(1500);                             // async: reply arrives after the controller round-trip
+  await sendFrame(factoryFrame(0xB9));           // read live config (controller sub 0x29)
+  await sleep(1600);
+  log('--- diagnose done (line-test mode stays until power-cycle; harmless) ---');
 }
 
 
@@ -475,6 +516,7 @@ function refreshButtons(){
   const on=connected;
   { const c=$('btn-conn'); if(c){ c.textContent = on ? t('btnDisconnect') : t('btnConnect'); c.disabled = on ? false : !hasAuthCreds(); } }
   { const b=$('btn-regiontoggle'); if(b){ b.disabled=!on; ['region-open-in','region-lock-in','open-in','locked-in'].forEach(id=>{ const i=$(id); if(i) i.disabled=!on; }); } }
+  { const b=$('btn-diag'); if(b) b.disabled=!on; }
   { const b=$('btn-raw'); if(b){ b.disabled=!on; const i=$('raw-in'); if(i) i.disabled=!on; } }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
 }
@@ -546,6 +588,7 @@ function clearLog(){ const el=$('log'); if(el) el.textContent=''; }
 function wireControls(){
   $('btn-conn').addEventListener('click', ()=> connected ? disconnect() : connect());
   { const b=$('btn-regiontoggle'); if(b) b.addEventListener('click', doRegionToggle); }
+  { const b=$('btn-diag'); if(b) b.addEventListener('click', doDiag); }
   { const b=$('btn-raw'); if(b) b.addEventListener('click', doRawSend); }
   ['region-open-in','region-lock-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', updateRegionToggle); });
   ['open-in','locked-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', persistDrossel); });
