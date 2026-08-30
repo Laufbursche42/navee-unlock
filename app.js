@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v35';
+const BUILD = 'v36';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -439,10 +439,12 @@ async function writeRegionCode(code){
   const before = String.fromCharCode(cfg[8])+String.fromCharCode(cfg[9]);
   cfg[8]=code.charCodeAt(0); cfg[9]=code.charCodeAt(1);
   log('region write '+before+' -> '+code+' (factory 0xA2 config write)');
-  await sendFrame(factoryFrame(0xA2, cfg));
-  await sleep(500);
-  await sendFrame(readFrame(CMD.READ_SN));      // verify: re-read serial/config
-  setTimeout(()=>{ const r=curRegion(); if(r===code) log('region now reads '+r+' -> power-cycle the scooter, reconnect, then test'); else log('sent plus acked; live read still '+r+' (meter caches it) -> power-cycle the scooter, reconnect, then re-check region'); updateRegionToggle(); }, 800);
+  await sendFrame(factoryFrame(0xA2, cfg));      // write config to controller
+  await sleep(400);
+  await sendFrame(factoryFrame(0xB9));           // force the meter to re-read the controller config (sub 0x29)
+  await sleep(600);
+  await sendFrame(readFrame(CMD.READ_SN));       // verify
+  setTimeout(()=>{ const r=curRegion(); if(r===code) log('region now reads '+r+' -> power-cycle the scooter, then test'); else log('region still '+r+' after forced re-read -> controller did not persist it (likely config-write lock; no BLE clear known)'); updateRegionToggle(); }, 900);
 }
 async function doRegionToggle(){
   if(!authed){ log('not authenticated'); return; }
