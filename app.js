@@ -31,12 +31,14 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v39';
+const BUILD = 'v40';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
 // UNBOUND scooter (trust-on-first-use). So the real numeric userId must be supplied for a bound one.
-const AUTO_UID = Math.floor(Math.random()*1e9)+1;   // fallback for an unbound scooter only
+// crypto-strong random in [0,max) - keeps Math.random() out of the auth path (CodeQL: insecure randomness)
+function secRandInt(max){ const a=new Uint32Array(1); (self.crypto||self.msCrypto).getRandomValues(a); return a[0] % max; }
+const AUTO_UID = secRandInt(1000000000)+1;   // fallback for an unbound scooter only
 const SERVICE     = '0000d0ff-3c17-d293-8e48-14fe2e4da212';
 const WRITE_CHAR  = '0000b002-0000-1000-8000-00805f9b34fb';
 const NOTIFY_CHAR = '0000b003-0000-1000-8000-00805f9b34fb';
@@ -367,7 +369,7 @@ function buildInitFrame(){
     uid=ov; usingRandomUid=false;
     if(uid>2147483647) log(t('logUidRange') || ('note: the account userId is a 32-bit number (max 2147483647); '+raw+' is too large to be a valid userId'));
   } else { uid=AUTO_UID; usingRandomUid=true; }   // no id given -> random (only works on an unbound scooter)
-  curKeyIdx=Math.floor(Math.random()*KEYS.length);
+  curKeyIdx=secRandInt(KEYS.length);
   return authInitFrame(uid,curKeyIdx);
 }
 async function authenticate(){
