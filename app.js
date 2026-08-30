@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v32';
+const BUILD = 'v33';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -231,7 +231,7 @@ function decodeParams(f){
   };
   // the custom-limit byte carries the enable flag in bit7; show the plain value too
   const limitVal = o.limitSpeed==null ? null : (o.limitSpeed & 0x7f);
-  if(o.maxSpeed!=null){ $('t-max').textContent = o.maxSpeed; lastMaxSpeed=o.maxSpeed; updateToggle(); }
+  if(o.maxSpeed!=null){ $('t-max').textContent = o.maxSpeed; lastMaxSpeed=o.maxSpeed; }
   if(limitVal!=null)    $('t-limit').textContent = limitVal + (o.limitSpeed & 0x80 ? ' (on)' : ' (off)');
   log(`params: max=${o.maxSpeed} limit=${limitVal} start=${o.startSpeed} mode=${o.driveMode} lock=${o.lock} unit=${o.unit}`);
   log('raw param data: '+hexs(p));
@@ -368,12 +368,6 @@ async function readStatus(){
 }
 
 // ----- writers -----
-async function writeCountry(val){
-  if(!authed){ log('not authenticated'); return; }
-  val=val&0xff;
-  await sendFrame(writeFrame(CMD.REGION, [0x08, val]));   // 0x6F subcmd 08 = country/region
-  log('country -> '+val+' (0x'+val.toString(16)+')');
-}
 // Direct custom speed limit (0x6B). enabled sets bit7 (limit active).
 async function writeLimitSpeed(kmh, enabled){
   if(!authed){ log('not authenticated'); return; }
@@ -387,24 +381,10 @@ async function writeMaxSpeed(kmh){
   await sendFrame(writeFrame(CMD.MAX_SPEED, [0x01, kmh&0xff]));
   log('max speed -> '+(kmh&0xff)+' km/h');
 }
-// ----- throttle lock/unlock (one button, like trfm/trbm) -----
-// "Entsperren" writes the open top speed, "Sperren" writes the legal/locked one, both via 0x6E.
-function drOpenVal(){ return parseInt(($('open-in')||{}).value||'32',10)||32; }
+function drOpenVal(){ return parseInt(($('open-in')||{}).value||'50',10)||50; }
 function drLockedVal(){ return parseInt(($('locked-in')||{}).value||'20',10)||20; }
-function drIsLocked(){ return lastMaxSpeed!=null && lastMaxSpeed<=drLockedVal(); }
 function persistDrossel(){ try{ localStorage.setItem('navee.open', String(drOpenVal())); localStorage.setItem('navee.locked', String(drLockedVal())); }catch(e){} }
 function loadDrossel(){ try{ const o=localStorage.getItem('navee.open'), l=localStorage.getItem('navee.locked'); if(o&&$('open-in')) $('open-in').value=o; if(l&&$('locked-in')) $('locked-in').value=l; }catch(e){} }
-function updateToggle(){ const b=$('btn-locktoggle'); if(!b) return; b.textContent = drIsLocked() ? t('btnUnlock2') : t('btnLock2'); }
-async function doToggle(){
-  if(!authed){ log('not authenticated'); return; }
-  const target = drIsLocked() ? drOpenVal() : drLockedVal();
-  persistDrossel();
-  await writeMaxSpeed(target);
-  setTimeout(()=>{ if(authed) sendFrame(readFrame(CMD.READ_PARAMS)); }, 400);   // read back so the button flips
-}
-// Direct max-speed test (0x6E sub 01) with an explicit value, then read the params back so the
-// t-max tile updates. This is the decisive hardware check: does writing a higher top speed actually
-// move the cap, or does the firmware clamp it to the SKU limit regardless of the stored value.
 async function doMaxSpeedTest(){
   if(!authed){ log('not authenticated'); return; }
   const v = parseInt(($('mst-in')||{}).value||'0',10)||0;
@@ -472,25 +452,11 @@ async function writeRegionCode(code){
 }
 async function doRegionToggle(){
   if(!authed){ log('not authenticated'); return; }
-  await writeRegionCode(regIsUnlocked() ? regLockCode() : regUnlockCode());
+  persistDrossel();
+  if(regIsUnlocked()){ await writeRegionCode(regLockCode()); await writeMaxSpeed(drLockedVal()); }
+  else { await writeRegionCode(regUnlockCode()); await writeMaxSpeed(drOpenVal()); }
 }
 
-// Scan: try candidate country values, read back maxSpeed after each. Finds the unrestricted value.
-async function scan(){
-  if(!authed){ log('not authenticated'); return; }
-  log('scanning country values 0..25 (reading maxSpeed back)...');
-  let best={val:null,max:-1};
-  for(let v=0; v<=25; v++){
-    await writeCountry(v); await sleep(400);
-    const rep=await (async()=>{ const p=sendFrame(readFrame(CMD.READ_PARAMS)); const r=waitReport(CMD.REPORT,1500); await p; return r; })();
-    const max = rep ? decodeParams(rep).maxSpeed : null;
-    log(`  country ${v} -> maxSpeed ${max}`);
-    if(max!=null && max>best.max) best={val:v,max};
-    await sleep(200);
-  }
-  if(best.val!=null){ $('country-in').value = best.val; log(`best: country ${best.val} -> maxSpeed ${best.max} (filled into the field - press Unlock to apply)`); }
-  else log('scan: no readable maxSpeed - check the raw report bytes in the log');
-}
 
 function onDisconnect(){ connected=false; authed=false; autoReadDone=false; phase2Sent=false; afterAuthDone=false; lastMaxSpeed=null; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); resetTiles(); }
 function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(); }
@@ -506,10 +472,8 @@ function hasAuthCreds(){
 function refreshButtons(){
   const on=connected;
   { const c=$('btn-conn'); if(c){ c.textContent = on ? t('btnDisconnect') : t('btnConnect'); c.disabled = on ? false : !hasAuthCreds(); } }
-  $('btn-unlock').disabled=!on; $('btn-scan').disabled=!on; $('country-in').disabled=!on;
-  { const t=$('btn-locktoggle'); if(t){ t.disabled=!on; $('open-in').disabled=!on; $('locked-in').disabled=!on; } }
   { const b=$('btn-mst'); if(b){ b.disabled=!on; const i=$('mst-in'); if(i) i.disabled=!on; } }
-  { const b=$('btn-regiontoggle'); if(b){ b.disabled=!on; ['region-open-in','region-lock-in'].forEach(id=>{ const i=$(id); if(i) i.disabled=!on; }); } }
+  { const b=$('btn-regiontoggle'); if(b){ b.disabled=!on; ['region-open-in','region-lock-in','open-in','locked-in'].forEach(id=>{ const i=$(id); if(i) i.disabled=!on; }); } }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
 }
 
@@ -579,13 +543,10 @@ function clearLog(){ const el=$('log'); if(el) el.textContent=''; }
 
 function wireControls(){
   $('btn-conn').addEventListener('click', ()=> connected ? disconnect() : connect());
-  $('btn-unlock').addEventListener('click', ()=> writeCountry(parseInt($('country-in').value||'0',10)||0));
-  $('btn-scan').addEventListener('click', scan);
-  $('btn-locktoggle').addEventListener('click', doToggle);
   { const b=$('btn-mst'); if(b) b.addEventListener('click', doMaxSpeedTest); }
   { const b=$('btn-regiontoggle'); if(b) b.addEventListener('click', doRegionToggle); }
   ['region-open-in','region-lock-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', updateRegionToggle); });
-  ['open-in','locked-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', ()=>{ persistDrossel(); updateToggle(); }); });
+  ['open-in','locked-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', persistDrossel); });
   SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=>{ const el=s.sel?$(s.sel):null; s.send(el?(parseInt(el.value||'0',10)||0):0); }); });
   $('btn-copy-log').addEventListener('click', copyLog);
   $('btn-clear-log').addEventListener('click', clearLog);
@@ -615,7 +576,7 @@ function applyLang(){
   document.querySelectorAll('#langs button').forEach(b=> b.setAttribute('aria-pressed', String(b.dataset.lang===lang)));
   const st=$('status'); if(st) setStatus(st.dataset.state||'disconnected');
   const th=$('btn-theme'); if(th){ const dark=document.documentElement.getAttribute('data-theme')!=='light'; th.setAttribute('aria-label', t(dark?'themeToLight':'themeToDark')); th.title=th.getAttribute('aria-label'); }
-  updateToggle();
+  updateRegionToggle();
   refreshButtons();
 }
 function initLang(){
@@ -727,7 +688,6 @@ function wireDocViewer(){
 
 // ---------- help modal ----------
 const HELP = {
-  drossel: ['drTitle', 'drHelp'],
   more:    ['moreTitle', 'moreHelp'],
   country: ['s4Title', 'countryHelp'],
   account: ['accountTitle', 'accountHelp'],
@@ -756,13 +716,13 @@ function parseDeepLink(){
     if(pendingDeepAction) log('shortcut: '+pendingDeepAction+' requested');
   }catch(e){}
 }
-function maybeRunDeepAction(){
+async function maybeRunDeepAction(){
   if(!pendingDeepAction||!authed) return;
   const a=pendingDeepAction; pendingDeepAction=null;
-  const v = a==='unlock' ? drOpenVal() : drLockedVal();
-  log('shortcut: '+(a==='unlock'?'unlock -> ':'lock -> ')+v+' km/h');
-  persistDrossel(); writeMaxSpeed(v);
-  setTimeout(()=>{ if(authed) sendFrame(readFrame(CMD.READ_PARAMS)); }, 400);
+  log('shortcut: '+a);
+  persistDrossel();
+  if(a==='unlock'){ await writeRegionCode(regUnlockCode()); await writeMaxSpeed(drOpenVal()); }
+  else { await writeRegionCode(regLockCode()); await writeMaxSpeed(drLockedVal()); }
 }
 async function tryAutoReconnect(){
   if(!pendingDeepAction) return;                 // only auto-reconnect when a shortcut asked for it

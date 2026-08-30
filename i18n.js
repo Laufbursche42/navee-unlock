@@ -58,6 +58,10 @@ window.I18N = {
     btnRegLock: "Sperren",
     regHint: "Setzt den Regionscode in der Seriennummer (Zeichen 8-9). Entsperren schreibt US (schnell), Sperren stellt DE zurück. Es wird nur gelesen, die zwei Zeichen geändert plus zurückgeschrieben - der Rest bleibt unangetastet. Danach Roller aus/ein plus kurze Testfahrt.",
     regWarn: "Nur am eigenen Gerät. Auf öffentlichen Straßen erlischt die Betriebserlaubnis. Experimentell - am Gerät bestätigen.",
+    tuTitle: "Freischalten (Tuning)",
+    tuOpenKmh: "Entsperrt (km/h)",
+    tuLockKmh: "Gesperrt (km/h)",
+    tuHint: "Entsperren setzt Region plus Max-Speed, Sperren stellt zurück. Danach Roller aus/ein plus kurze Testfahrt.",
 
     moreTitle: "Weitere Einstellungen",
     moreEmpty: "Nach dem Verbinden erscheinen hier nur die Einstellungen, die dein Scooter tatsächlich unterstützt.",
@@ -210,6 +214,10 @@ window.I18N = {
     btnRegLock: "Lock",
     regHint: "Sets the region code in the serial (characters 8-9). Unlock writes US (fast), Lock restores DE. It only reads, changes the two characters plus writes back - everything else stays untouched. Then power-cycle the scooter plus a short test ride.",
     regWarn: "Only on your own device. On public roads the type approval is void. Experimental - confirm on the device.",
+    tuTitle: "Unlock (tuning)",
+    tuOpenKmh: "Unlocked (km/h)",
+    tuLockKmh: "Locked (km/h)",
+    tuHint: "Unlock sets region plus max speed, Lock reverts. Then power-cycle the scooter plus a short test ride.",
 
     moreTitle: "More settings",
     moreEmpty: "After connecting, only the settings your scooter actually supports show up here.",
