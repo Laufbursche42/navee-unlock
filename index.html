@@ -11,7 +11,7 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="favicon-180.png">
-<link rel="stylesheet" href="styles.css?v=31">
+<link rel="stylesheet" href="styles.css?v=32">
 </head>
 <body>
 <div class="wrap">
@@ -127,6 +127,25 @@
       <button id="btn-mst" data-t="btnSend" disabled></button>
     </div>
     <p class="hint" data-t="mstHint"></p>
+  </div>
+
+  <div class="card">
+    <h2 data-t="regTitle"></h2>
+    <div class="btns">
+      <button class="primary span2" id="btn-regiontoggle" disabled></button>
+    </div>
+    <div class="dr-fields">
+      <div class="dr-field">
+        <label data-t="regOpen"></label>
+        <input id="region-open-in" type="text" maxlength="2" autocapitalize="characters" autocomplete="off" spellcheck="false" value="US" disabled>
+      </div>
+      <div class="dr-field">
+        <label data-t="regLock"></label>
+        <input id="region-lock-in" type="text" maxlength="2" autocapitalize="characters" autocomplete="off" spellcheck="false" value="DE" disabled>
+      </div>
+    </div>
+    <p class="hint" data-t="regHint"></p>
+    <p class="hint" data-t="regWarn"></p>
   </div>
 
   <div class="card">
@@ -330,7 +349,7 @@
   </div>
 </dialog>
 
-<script src="i18n.js?v=31"></script>
-<script src="app.js?v=31"></script>
+<script src="i18n.js?v=32"></script>
+<script src="app.js?v=32"></script>
 </body>
 </html>

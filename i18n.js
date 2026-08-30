@@ -51,6 +51,14 @@ window.I18N = {
     mstLabel: "Höchstgeschwindigkeit (km/h)",
     mstHint: "Direkter Test: schreibt die Höchstgeschwindigkeit per Befehl 0x6E sub 01 genau mit dem eingetragenen km/h-Wert und liest danach die Parameter zurück. Fürs Prüfen am echten Gerät erst 60 schreiben, kurz fahren, dann 70. Ändert sich weder der zurückgelesene max-Wert noch die reale Geschwindigkeit, klemmt die Firmware das Limit unabhängig vom geschriebenen Wert ab.",
 
+    regTitle: "Region freischalten (Tuning)",
+    regOpen: "Entsperrt-Region",
+    regLock: "Gesperrt-Region",
+    btnRegUnlock: "Entsperren",
+    btnRegLock: "Sperren",
+    regHint: "Setzt den Regionscode in der Seriennummer (Zeichen 8-9). Entsperren schreibt US (schnell), Sperren stellt DE zurück. Es wird nur gelesen, die zwei Zeichen geändert plus zurückgeschrieben - der Rest bleibt unangetastet. Danach Roller aus/ein plus kurze Testfahrt.",
+    regWarn: "Nur am eigenen Gerät. Auf öffentlichen Straßen erlischt die Betriebserlaubnis. Experimentell - am Gerät bestätigen.",
+
     moreTitle: "Weitere Einstellungen",
     moreEmpty: "Nach dem Verbinden erscheinen hier nur die Einstellungen, die dein Scooter tatsächlich unterstützt.",
     btnSend: "Setzen",
@@ -194,6 +202,14 @@ window.I18N = {
     mstTitle: "Write max speed directly (test)",
     mstLabel: "Top speed (km/h)",
     mstHint: "Direct test: writes the top speed via command 0x6E sub 01 with exactly the km/h value entered, then reads the parameters back. For the hardware check write 60 first, ride briefly, then 70. If neither the read-back max nor the real speed changes, the firmware clamps the limit regardless of the written value.",
+
+    regTitle: "Unlock region (tuning)",
+    regOpen: "Unlocked region",
+    regLock: "Locked region",
+    btnRegUnlock: "Unlock",
+    btnRegLock: "Lock",
+    regHint: "Sets the region code in the serial (characters 8-9). Unlock writes US (fast), Lock restores DE. It only reads, changes the two characters plus writes back - everything else stays untouched. Then power-cycle the scooter plus a short test ride.",
+    regWarn: "Only on your own device. On public roads the type approval is void. Experimental - confirm on the device.",
 
     moreTitle: "More settings",
     moreEmpty: "After connecting, only the settings your scooter actually supports show up here.",

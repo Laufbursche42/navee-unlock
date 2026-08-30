@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v31';
+const BUILD = 'v32';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -106,7 +106,7 @@ function parseHexFrame(s){
 }
 
 // ---------- BLE ----------
-let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false, lastMaxSpeed=null, usingRandomUid=false, phase2Sent=false, afterAuthDone=false;
+let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, curKeyIdx=0, autoReadDone=false, lastMaxSpeed=null, usingRandomUid=false, phase2Sent=false, afterAuthDone=false, lastSerialData=null;
 // After the challenge/response succeeds the app runs a fixed routine: time sync (0x6F sub 6) then the
 // status reads. We mirror it once per connection.
 async function afterAuth(){
@@ -152,7 +152,8 @@ function onNotify(ev){
     const start=rx.findIndex((b,i)=>b===0x55&&rx[i+1]===0xAA);
     if(start<0){ rx=[]; break; }
     if(start>0) rx=rx.slice(start);
-    const end=rx.findIndex((b,i)=>b===0xFE&&rx[i+1]===0xFD);
+    // normal frames end FE FD; the undocumented factory frames (cmd >= 0xA0) end AE AD
+    const end=rx.findIndex((b,i)=>(b===0xFE&&rx[i+1]===0xFD)||(b===0xAE&&rx[i+1]===0xAD&&rx[3]>=0xA0));
     if(end<0) break;
     handleFrame(new Uint8Array(rx.slice(0,end+2))); rx=rx.slice(end+2);
   }
@@ -203,6 +204,7 @@ async function handleFrame(f){
   if(cmd===CMD.READ_BATTERY) decodeBattery(f);
   if(cmd===CMD.READ_FW) decodeFirmware(f);
   if(cmd===0x90||cmd===0x91||cmd===0x92) decodeRealtime(cmd,f);
+  if(cmd===0xA2) log('factory config-write ack (0xA2) received');
 }
 
 // read len bytes from p at off; z2=true big-endian, z2=false little-endian (matches ByteUtil.p)
@@ -239,9 +241,10 @@ function decodeParams(f){
 function decodeSN(f){
   const {err, data:p} = frameParts(f);
   if(err!==0){ log('SN report error code '+err); return; }
+  lastSerialData = Array.from(p);           // raw config block, for region read-modify-write
   let sn=''; for(const c of p){ if(c>=0x20&&c<0x7f) sn+=String.fromCharCode(c); }
   sn=sn.trim();
-  if(sn.length>=10){ const area=sn.substring(8,10); $('t-sn').textContent=sn; $('t-region').textContent=area; $('t-sku').textContent=skuOf(area); log('serial '+sn+' -> region '+area+' (SKU '+skuOf(area)+')'); }
+  if(sn.length>=10){ const area=sn.substring(8,10); $('t-sn').textContent=sn; $('t-region').textContent=area; $('t-sku').textContent=skuOf(area); log('serial '+sn+' -> region '+area+' (SKU '+skuOf(area)+')'); updateRegionToggle(); }
   else log('SN report: '+hexs(f));
 }
 // Battery report (cmd 0x72). Offsets from DeviceBatteryInfo (BleHandler.G case 114).
@@ -433,6 +436,45 @@ async function writeSound(v){
   log('sound volume -> '+(v&0x7f));
 }
 
+function factoryFrame(sub, payload){
+  payload = payload || [];
+  const body = [0x55,0xAA,0x00,sub,payload.length,...payload];
+  return new Uint8Array([...body, ckSum(body), 0xAE, 0xAD]);
+}
+function curRegion(){
+  if(lastSerialData && lastSerialData.length>=10)
+    return String.fromCharCode(lastSerialData[8]||0)+String.fromCharCode(lastSerialData[9]||0);
+  const el=$('t-region'); return (el && el.textContent && el.textContent!=='-') ? el.textContent : null;
+}
+function regUnlockCode(){ return ((($('region-open-in')||{}).value||'US').toUpperCase().replace(/[^A-Z]/g,'').slice(0,2))||'US'; }
+function regLockCode(){ return ((($('region-lock-in')||{}).value||'DE').toUpperCase().replace(/[^A-Z]/g,'').slice(0,2))||'DE'; }
+function regIsUnlocked(){ const r=curRegion(); return r!=null && r===regUnlockCode(); }
+function updateRegionToggle(){
+  const b=$('btn-regiontoggle'); if(!b) return;
+  b.textContent = regIsUnlocked()
+    ? (t('btnRegLock')||'Sperren')+' ('+regLockCode()+')'
+    : (t('btnRegUnlock')||'Entsperren')+' ('+regUnlockCode()+')';
+}
+// Write a 2-letter region code into serial chars 8-9 via the factory 0xA2 config write.
+async function writeRegionCode(code){
+  if(!authed){ log('not authenticated'); return; }
+  if(!/^[A-Z]{2}$/.test(code)){ log('region code must be 2 letters'); return; }
+  if(!lastSerialData || lastSerialData.length<17){ log('reading serial/config first...'); await sendFrame(readFrame(CMD.READ_SN)); await sleep(700); }
+  if(!lastSerialData || lastSerialData.length<17){ log('could not read serial - aborting region write'); return; }
+  const cfg = Array.from(lastSerialData).slice(0,17);
+  const before = String.fromCharCode(cfg[8])+String.fromCharCode(cfg[9]);
+  cfg[8]=code.charCodeAt(0); cfg[9]=code.charCodeAt(1);
+  log('region write '+before+' -> '+code+' (factory 0xA2 config write)');
+  await sendFrame(factoryFrame(0xA2, cfg));
+  await sleep(500);
+  await sendFrame(readFrame(CMD.READ_SN));      // verify: re-read serial/config
+  setTimeout(()=>{ const r=curRegion(); if(r===code) log('region confirmed: '+r+' -> now power-cycle the scooter, then test'); else log('region still '+r+' -> write blocked (factory lock) or pairing needed; see notes'); updateRegionToggle(); }, 800);
+}
+async function doRegionToggle(){
+  if(!authed){ log('not authenticated'); return; }
+  await writeRegionCode(regIsUnlocked() ? regLockCode() : regUnlockCode());
+}
+
 // Scan: try candidate country values, read back maxSpeed after each. Finds the unrestricted value.
 async function scan(){
   if(!authed){ log('not authenticated'); return; }
@@ -467,6 +509,7 @@ function refreshButtons(){
   $('btn-unlock').disabled=!on; $('btn-scan').disabled=!on; $('country-in').disabled=!on;
   { const t=$('btn-locktoggle'); if(t){ t.disabled=!on; $('open-in').disabled=!on; $('locked-in').disabled=!on; } }
   { const b=$('btn-mst'); if(b){ b.disabled=!on; const i=$('mst-in'); if(i) i.disabled=!on; } }
+  { const b=$('btn-regiontoggle'); if(b){ b.disabled=!on; ['region-open-in','region-lock-in'].forEach(id=>{ const i=$(id); if(i) i.disabled=!on; }); } }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
 }
 
@@ -540,6 +583,8 @@ function wireControls(){
   $('btn-scan').addEventListener('click', scan);
   $('btn-locktoggle').addEventListener('click', doToggle);
   { const b=$('btn-mst'); if(b) b.addEventListener('click', doMaxSpeedTest); }
+  { const b=$('btn-regiontoggle'); if(b) b.addEventListener('click', doRegionToggle); }
+  ['region-open-in','region-lock-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', updateRegionToggle); });
   ['open-in','locked-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change', ()=>{ persistDrossel(); updateToggle(); }); });
   SETTINGS.forEach(s=>{ const b=$(s.btn); if(b) b.addEventListener('click', ()=>{ const el=s.sel?$(s.sel):null; s.send(el?(parseInt(el.value||'0',10)||0):0); }); });
   $('btn-copy-log').addEventListener('click', copyLog);
