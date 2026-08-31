@@ -193,3 +193,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .copy { margin: 0; font-family: var(--mono); font-size: 11.5px; background: var(--field); border: 1px solid var(--line);
   border-radius: 8px; padding: 9px 11px; color: var(--value); white-space: pre-wrap; word-break: break-all;
   -webkit-user-select: all; user-select: all; }
+
+/* Model tile spans the full row: model names are longer than region/SKU codes. */
+.tile-wide { grid-column: 1 / -1; }
+/* A settings row shown for an unverified model (model not recognized from the serial). */
+.set-row.caution { border-left: 3px solid var(--warn-line); background: var(--warn-bg); border-radius: 8px; padding-left: 8px; }

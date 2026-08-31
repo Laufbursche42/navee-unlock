@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v41';
+const BUILD = 'v43';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -64,6 +64,59 @@ const KEYS = [
 
 // Region -> SKU (BleHandler.a0), AreaCode derived read-only from serial[8:10]
 function skuOf(area){ return ['IT','DE','NE'].includes(area) ? 'ITA' : ['US','CN','RU'].includes(area) ? 'USA' : 'EUR'; }
+
+// Model detection: NAVEE serials are [FAMILY LETTER E/T/U/V/W][4-digit pid at index 1..4]...[region 8..9].
+// Confirmed line-by-line on the XT5/GT3/S meters; real sibling serial "T24435AVDE4C00328" -> pid 2443 = XT5 Ultra.
+// Map: pid-prefix -> [modelName, cruiseSettable, kickSettable]. 1 = yes, 0 = no (firmware), null = unverified.
+// Values come from the full fleet firmware sweep (meter read line-by-line, controller cross-checked).
+// Speed is intentionally omitted here - it stays parked until the fleet speed-lever hunt is fully verified.
+const MODELS = {
+  '2213':['N65i',null,null], '2314':['V25/V25i',null,null], '2322':['S40',1,0],
+  '2326':['V3 Pro',null,null], '2327':['V25 Pro/V25i Pro',null,null], '2328':['V40i/V40i Pro',null,null],
+  '2329':['V50i Pro',0,0], '2334':['S60',1,0], '2345':['ST3 Pro',1,1], '2353':['P50',null,null],
+  '2401':['ST3',1,1], '2402':['GT3',1,1], '2403':['GT3 Pro',1,1], '2416':['XT5 Pro',1,1],
+  '2417':['E20',1,0], '2418':['GT3 Max',1,1], '2422':['E25',1,0], '2435':['Birdie 3',0,0],
+  '2436':['V25i Pro II',0,0], '2437':['V40i Pro II',0,0], '2438':['V50i Pro II',0,0], '2441':['ST5 Pro',1,1],
+  '2442':['G5',0,0], '2443':['XT5 Ultra',1,1], '2449':['NT5 Ultra X',1,1], '2504':['K100',null,null],
+  '2505':['K100 Pro',null,null], '2506':['K100 Max',1,1], '2509':['N65i II',1,1], '2515':['Birdie 3x',0,0],
+  '2517':['ST5 Max',1,1], '2518':['G5 pro',0,0], '2519':['G5 Max',0,0], '2529':['XT5 Max',1,1],
+  '2536':['S2',1,1], '2538':['UT5 Max',null,null], '2543':['NT5 Max',1,1], '2545':['GT5 Pro',1,1],
+  '2546':['GT5 Max',1,1], '2547':['UT5 Ultra',null,null], '2573':['E25 Go',1,1], '2585':['UT5 Ultra X',1,1],
+  '2611':['E45 Pro',1,1], '2612':['E60 Pro',1,1], '2614':['S2',1,1], '2619':['UT3 Pro',null,null],
+  '2620':['UT3 Max',1,1], '2623':['V45i',null,null], '2634':['E20 Lite',1,1], '2643':['E60 Pro',1,1],
+  '2646':['UT3',null,null], '2657':['NT5 Max+',1,1], '2658':['NT5 Ultra',1,1], '2701':['NT3 Pro',1,1],
+  '2704':['GT3 Pro',1,1], '2707':['NT5 Turbo',1,1], '2714':['ST3 Pro',1,1], '2736':['KG05',null,null],
+  '2739':['WOLF X',null,null], '2745':['NT3 Max',1,1], '2753':['E45 Pro',1,1], '2754':['E60 Pro',1,1],
+  '2768':['EXO S Pro',0,0],
+};
+// Pull the 4-digit pid out of a serial string: skip a leading family letter, take the next 4 digits.
+function pidOf(sn){ if(!sn) return null; const m=String(sn).match(/[A-Za-z]?(\d{4})/); return m?m[1]:null; }
+
+// Speed lever per pid-prefix - ONLY the four families where the flash-free BLE gear/mode lever is
+// proven end-to-end (meter + controller) and adversarially verified. Value = [deHint, enHint] shown
+// verbatim under the unlock button. The lever is gear-4 / top gear (0x58=4); the firmware clamps the
+// result to the unit's own SKU/region, so the achieved km/h is a range, not a settable number.
+const SPEED = {
+  '2443':['XT5 Ultra: 40,5 bis 50,8 km/h je nach SKU des Geräts. Die 50,8 sind im Code belegt, aber nicht per Messfahrt bestätigt.',
+          'XT5 Ultra: 40.5 to 50.8 km/h depending on the unit SKU. The 50.8 is code-proven but not confirmed by a measured ride.'],
+  '2416':['XT5 Pro: rund 50 km/h (SKU 8 bis etwa 65), abhängig von der internen Gang-Zuordnung.',
+          'XT5 Pro: about 50 km/h (SKU 8 up to ~65), depending on the internal gear mapping.'],
+  '2529':['XT5 Max: rund 50 km/h (SKU 8 bis etwa 65), abhängig von der internen Gang-Zuordnung.',
+          'XT5 Max: about 50 km/h (SKU 8 up to ~65), depending on the internal gear mapping.'],
+  '2585':['UT5 Ultra X: bis 60 km/h auf unbeschränkter SKU. Die 70 aus der App sind nicht belegt.',
+          'UT5 Ultra X: up to 60 km/h on an unrestricted SKU. The 70 the app offers is not proven.'],
+  '2611':['E45 Pro: bis etwa 32,5 km/h auf freizügiger Region, sonst region-gedrosselt.',
+          'E45 Pro: up to about 32.5 km/h on a permissive region, otherwise region-limited.'],
+  '2753':['E45 Pro: bis etwa 32,5 km/h auf freizügiger Region, sonst region-gedrosselt.',
+          'E45 Pro: up to about 32.5 km/h on a permissive region, otherwise region-limited.'],
+  '2612':['E60 Pro: bis etwa 32,5 km/h auf freizügiger Region, sonst region-gedrosselt.',
+          'E60 Pro: up to about 32.5 km/h on a permissive region, otherwise region-limited.'],
+  '2643':['E60 Pro: bis etwa 32,5 km/h auf freizügiger Region, sonst region-gedrosselt.',
+          'E60 Pro: up to about 32.5 km/h on a permissive region, otherwise region-limited.'],
+  '2754':['E60 Pro: bis etwa 32,5 km/h auf freizügiger Region, sonst region-gedrosselt.',
+          'E60 Pro: up to about 32.5 km/h on a permissive region, otherwise region-limited.'],
+};
+let detectedModel=null, detectedCaps=null, detectedSpeed=null;   // detectedCaps = [name, cruise, kick]; detectedSpeed = [deHint, enHint] or null
 
 // ---------- helpers ----------
 const $ = id => document.getElementById(id);
@@ -249,8 +302,38 @@ function decodeSN(f){
   lastSerialData = Array.from(p);           // raw config block, for region read-modify-write
   let sn=''; for(const c of p){ if(c>=0x20&&c<0x7f) sn+=String.fromCharCode(c); }
   sn=sn.trim();
-  if(sn.length>=10){ const area=sn.substring(8,10); $('t-sn').textContent=sn; $('t-region').textContent=area; $('t-sku').textContent=skuOf(area); log('serial '+sn+' -> region '+area+' (SKU '+skuOf(area)+')'); updateRegionToggle(); }
+  if(sn.length>=10){ const area=sn.substring(8,10); $('t-sn').textContent=sn; $('t-region').textContent=area; $('t-sku').textContent=skuOf(area); log('serial '+sn+' -> region '+area+' (SKU '+skuOf(area)+')'); updateRegionToggle(); detectModel(sn); }
   else log('SN report: '+hexs(f));
+}
+// Resolve the connected model from the serial and update the feature card + gating.
+function detectModel(sn){
+  const pid=pidOf(sn);
+  detectedCaps = pid ? (MODELS[pid]||null) : null;
+  detectedSpeed = pid ? (SPEED[pid]||null) : null;
+  detectedModel = detectedCaps ? detectedCaps[0] : null;
+  const el=$('t-model'); if(el) el.textContent = detectedModel || (pid ? ('? ('+pid+')') : '-');
+  if(detectedModel) log('model: '+detectedModel+' (pid '+pid+')'+(detectedSpeed?' - speed lever available':''));
+  else if(pid) log('model: unknown pid '+pid+' - features shown unverified');
+  applyModelCaps();
+}
+// Show the three drive-functions per the detected model. lock is universal; cruise/kick follow the
+// firmware sweep: 1 -> supported (show), 0 -> not supported (hide), null/unknown -> show as unverified.
+function applyModelCaps(){
+  const set=(key,cap)=>{ const row=$('row-'+key); if(!row) return;
+    if(!connected){ row.hidden=true; row.classList.remove('caution'); return; }
+    if(cap===0){ row.hidden=true; row.classList.remove('caution'); }
+    else { row.hidden=false; row.classList.toggle('caution', cap==null); } };
+  set('lock', 1);                                   // Wegfahrsperre - whole line supports 0x51
+  set('cruise', detectedCaps ? detectedCaps[1] : null);
+  set('zero',   detectedCaps ? detectedCaps[2] : null);
+  const fm=$('fn-model');
+  if(fm) fm.textContent = connected
+    ? (detectedModel ? t('fnModel').replace('%s', detectedModel) : t('fnModelUnknown'))
+    : t('fnConnect');
+  // Speed card (gear lever): only for the four families where the lever is proven end-to-end.
+  const tc=$('tu-card'); const showSpeed = connected && !!detectedSpeed;
+  if(tc) tc.hidden = !showSpeed;
+  const sh=$('tu-model-hint'); if(sh){ sh.textContent = detectedSpeed ? detectedSpeed[lang==='en'?1:0] : ''; sh.hidden = !showSpeed; }
 }
 // Factory reply payload: 55 AA 00 <cmd> <len> <payload...> <cksum> AE AD (payload = len bytes at [5]).
 function factoryPayload(f){ const len=f[4]||0; return f.slice(5, 5+len); }
@@ -461,7 +544,7 @@ function regIsUnlocked(){ const r=curRegion(); return r!=null && r===regUnlockCo
 let speedUnlocked=false;
 function updateRegionToggle(){
   const b=$('btn-regiontoggle'); if(!b) return;
-  b.textContent = speedUnlocked ? (t('btnSpeedLock')||'Sperren') : (t('btnSpeedUnlock')||'Entsperren (50,8 km/h)');
+  b.textContent = speedUnlocked ? (t('btnSpeedLock')||'Zurücksetzen') : (t('btnSpeedUnlock')||'Speed freischalten');
 }
 // Write a 2-letter region code into serial chars 8-9 via the factory 0xA2 config write.
 async function writeRegionCode(code){
@@ -494,7 +577,7 @@ async function doSpeedUnlock(){
   if(!authed){ log('not authenticated'); return; }
   await writeToggle(0x58, 4);
   speedUnlocked=true; updateRegionToggle();
-  log('speed unlock: gear 4 sent -> meter commands the SKU top speed (up to 50.8 km/h). Per session; a gear change to S or a reboot reverts it.');
+  log('speed unlock: gear 4 sent -> meter commands the SKU top speed for '+(detectedModel||'this model')+'. The firmware clamps it to the unit SKU/region. Per session; a gear change to S or a reboot reverts it.');
 }
 async function doSpeedLock(){
   if(!authed){ log('not authenticated'); return; }
@@ -531,7 +614,7 @@ async function doDiag(){
 }
 
 
-function onDisconnect(){ connected=false; authed=false; autoReadDone=false; phase2Sent=false; afterAuthDone=false; lastMaxSpeed=null; writeCh=notifyCh=null; rx=[]; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); resetTiles(); }
+function onDisconnect(){ connected=false; authed=false; autoReadDone=false; phase2Sent=false; afterAuthDone=false; lastMaxSpeed=null; detectedModel=null; detectedCaps=null; detectedSpeed=null; writeCh=notifyCh=null; rx=[]; const mt=$('t-model'); if(mt) mt.textContent='-'; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); applyModelCaps(); resetTiles(); }
 function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(); }
 
 // The connect button stays disabled until we have something to authenticate with: a numeric account
@@ -557,8 +640,8 @@ function refreshButtons(){
 // options it supports. `state` maps a reported byte to the select value.
 const TOGGLE_STATE = v => (v ? 1 : 0);
 const SETTINGS = [
-  { key:'lock',   sel:'lock-in',   btn:'btn-locksel', off:null, send:v=>writeToggle(0x51,v), state:TOGGLE_STATE }, // Wegfahrsperre - immer verfuegbar (Standardfunktion der ganzen Reihe)
-  { key:'zero',   sel:'zero-in',   btn:'btn-zero',   off:19, send:v=>writeStartSpeed(v), state:v=>Math.min(5,v) },
+  { key:'lock',   sel:'lock-in',   btn:'btn-locksel', off:null, capRow:true, send:v=>writeToggle(0x51,v), state:TOGGLE_STATE }, // Wegfahrsperre - universal, visibility owned by applyModelCaps
+  { key:'zero',   sel:'zero-in',   btn:'btn-zero',   off:19, capRow:true, send:v=>writeStartSpeed(v), state:v=>Math.min(5,v) },  // Zero-Start - per-model, gated by applyModelCaps
   { key:'drive',  sel:'drive-in',  btn:'btn-drive',  off:26, send:v=>writeSub(0x6E,2,v), state:TOGGLE_STATE }, // Dual-Drive
   { key:'accel',  sel:'accel-in',  btn:'btn-accel',  off:null, send:v=>writeToggle(0x58,v) },                  // Normal 3 / Turbo 5
   { key:'ers',    sel:'ers-in',    btn:'btn-ers',    off:5,  send:v=>writeToggle(0x53,v), state:v=>v },        // Rekuperation
@@ -567,7 +650,7 @@ const SETTINGS = [
   { key:'osc',    sel:'osc-in',    btn:'btn-osc',    off:39, send:v=>writeToggle(0x82,v), state:TOGGLE_STATE },
   { key:'tcs',    sel:'tcs-in',    btn:'btn-tcs',    off:11, send:v=>writeToggle(0x5F,v), state:TOGGLE_STATE },
   { key:'slope',  sel:'slope-in',  btn:'btn-slope',  off:37, send:v=>writeToggle(0x81,v), state:TOGGLE_STATE },
-  { key:'cruise', sel:'cruise-in', btn:'btn-cruise', off:3,  send:v=>writeToggle(0x52,v), state:TOGGLE_STATE },
+  { key:'cruise', sel:'cruise-in', btn:'btn-cruise', off:3,  capRow:true, send:v=>writeToggle(0x52,v), state:TOGGLE_STATE }, // Tempomat - per-model, gated by applyModelCaps
   { key:'lrange', sel:'lrange-in', btn:'btn-lrange', off:38, send:v=>writeSub(0x6F,7,v), state:TOGGLE_STATE },
   { key:'lowpow', sel:'lowpow-in', btn:'btn-lowpow', off:32, send:v=>writeSub(0x6F,5,v), state:TOGGLE_STATE },
   { key:'chlimit',sel:'chlimit-in',btn:'btn-chlimit',off:31, send:v=>writeSub(0x6F,4,v), state:v=>v },
@@ -588,6 +671,7 @@ function applyReportToSettings(p){
   let any=false;
   SETTINGS.forEach(s=>{
     const row=$('row-'+s.key); if(!row) return;
+    if(s.capRow){ if(s.off!=null && s.off<p.length){ const sel=$(s.sel); if(sel&&s.state) sel.value=String(s.state(p[s.off])); } return; } // visibility owned by applyModelCaps; prefill only
     if(s.off==null){ row.hidden=false; any=true; return; }   // no report field: show once connected
     if(s.off < p.length){ row.hidden=false; any=true; const sel=$(s.sel); if(sel&&s.state) sel.value=String(s.state(p[s.off])); }
     else row.hidden=true;
@@ -653,6 +737,7 @@ function applyLang(){
   const th=$('btn-theme'); if(th){ const dark=document.documentElement.getAttribute('data-theme')!=='light'; th.setAttribute('aria-label', t(dark?'themeToLight':'themeToDark')); th.title=th.getAttribute('aria-label'); }
   updateRegionToggle();
   refreshButtons();
+  applyModelCaps();   // re-apply the model gating so the fn-model line + rows keep their state after a language switch
 }
 function initLang(){
   let saved=null; try{ saved=localStorage.getItem('navee.lang'); }catch(e){}
@@ -763,6 +848,7 @@ function wireDocViewer(){
 
 // ---------- help modal ----------
 const HELP = {
+  fn:      ['fnHelpTitle', 'fnHelp'],
   more:    ['moreTitle', 'moreHelp'],
   country: ['s4Title', 'countryHelp'],
   account: ['accountTitle', 'accountHelp'],
