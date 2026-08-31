@@ -557,7 +557,7 @@ function refreshButtons(){
 // options it supports. `state` maps a reported byte to the select value.
 const TOGGLE_STATE = v => (v ? 1 : 0);
 const SETTINGS = [
-  { key:'lock',   sel:'lock-in',   btn:'btn-locksel', off:2, send:v=>writeToggle(0x51,v), state:TOGGLE_STATE }, // Wegfahrsperre
+  { key:'lock',   sel:'lock-in',   btn:'btn-locksel', off:null, send:v=>writeToggle(0x51,v), state:TOGGLE_STATE }, // Wegfahrsperre - immer verfuegbar (Standardfunktion der ganzen Reihe)
   { key:'zero',   sel:'zero-in',   btn:'btn-zero',   off:19, send:v=>writeStartSpeed(v), state:v=>Math.min(5,v) },
   { key:'drive',  sel:'drive-in',  btn:'btn-drive',  off:26, send:v=>writeSub(0x6E,2,v), state:TOGGLE_STATE }, // Dual-Drive
   { key:'accel',  sel:'accel-in',  btn:'btn-accel',  off:null, send:v=>writeToggle(0x58,v) },                  // Normal 3 / Turbo 5
@@ -769,7 +769,7 @@ const HELP = {
   authhex: ['authhexTitle', 'authhexHelp'],
   disclaimer: ['footDisclaimer', 'disclaimerText'],
 };
-function openHelp(key){ const m=HELP[key]; if(!m) return; const dlg=$('help'); if(!dlg) return; $('help-title').textContent=t(m[0]); $('help-body').textContent=t(m[1]); if(typeof dlg.showModal==='function') dlg.showModal(); }
+function openHelp(key){ const m=HELP[key]; if(!m) return; const dlg=$('help'); if(!dlg) return; $('help-title').textContent=t(m[0]); $('help-body').innerHTML=t(m[1]); if(typeof dlg.showModal==='function') dlg.showModal(); }
 function closeHelp(){ const d=$('help'); if(d&&d.close) d.close(); }
 function wireHelp(){
   document.querySelectorAll('.help-btn').forEach(b=> b.addEventListener('click', ()=> openHelp(b.getAttribute('data-help'))));
