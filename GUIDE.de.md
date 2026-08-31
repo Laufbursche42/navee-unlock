@@ -56,25 +56,25 @@ Variante Netzwerk:
 1. **Seite öffnen** in einem unterstützten Browser.
 2. **userId eintragen plus Verbinden.** Trage oben deine numerische Konto-userId ein (siehe Abschnitt davor), dann wird *Verbinden* frei. Auf *Verbinden* tippen und deinen Scooter im Dialog auswählen. Er erscheint unter seinem Namen (NAVEE...), genau wie in der offiziellen App. Falls er nicht auftaucht, den Haken *Alle Bluetooth-Geräte zeigen* setzen und dort suchen. Das Tool authentifiziert sich direkt nach dem Verbinden automatisch.
 3. **Werte erscheinen automatisch.** Gleich nach dem Verbinden liest das Tool den Status und zeigt Region, SKU, Max-Speed, Limit, die Seriennummer plus die Telemetrie. Die rohen Frames stehen zusätzlich als Hex im Log.
-4. **Geschwindigkeit setzen.** Zwei getrennte Wege:
-   - **Direkt (empfohlen):** einen Wert unter *Geschwindigkeit setzen* eintragen und *Max-Speed setzen* drücken. Das sendet denselben Befehl wie der Max-Speed-Screen der App. *Limit setzen* schreibt stattdessen das Custom-Limit. Jeder Wert ist erlaubt.
-   - **Region-Weg:** Die Region bestimmt die SKU und damit die Default-Obergrenze. *Werte durchprobieren* testet die Ländercodes, liest nach jedem die Max-Speed und trägt den besten ein, dann *Region schreiben*.
+4. **Geschwindigkeit entsperren (nur XT5 Ultra, XT5 Pro, XT5 Max).** Auf *Entsperren (bis 50,8 km/h)* tippen. Das sendet den flash-freien Gang-4-Befehl (BLE 0x58 = 4). Am XT5 Ultra gibt das 50,8 km/h frei, am XT5 Pro/Max rund 40 km/h. *Sperren* stellt den Normalmodus wieder her (Gang 3). Der Wert ist fest von der Firmware vorgegeben, nicht einstellbar, deshalb gibt es kein Speed-Eingabefeld.
+   - Verhalten am Gerät: Das Display bleibt in D, die Boost-Taste ist ohne Funktion. Ein Wechsel in Modus S oder ein Neustart hebt den Trick auf und stellt die normalen Modi wieder her, also je Fahrt neu senden.
+   - Bei allen anderen Modellen bringt der Befehl nichts: der Controller riegelt den Befehl auf sein Region-Limit ab oder der Meter hat den Gang-4-Weg nicht. Siehe die Modell-Liste auf der Seite.
 5. **Erneut Status lesen** und prüfen, was der Scooter jetzt meldet.
 
 ## Wie weit geht es
 
-Wie weit es geht, hängt vom Modell und der Firmware ab. Die offizielle App bietet je nach Modell unterschiedliche Obergrenzen an, von rund 32 bis 70 km/h. Das Tool lässt jeden Wert zu, auch höhere. Ob der Controller einen Wert übernimmt oder selbst abriegelt, ist vorher nicht bekannt. Probier verschiedene Werte aus und lies danach den Status, um zu sehen was hängen bleibt.
+Der Gang-4-Weg ist ein reines XT5-Familien-Feature, über die ganze Firmware-Kette code-belegt: XT5 Ultra erreicht 50,8 km/h (am Gerät bestätigt), XT5 Pro/Max rund 40 km/h. Die 50,8 sind die feste Obergrenze der Firmware, nicht höher setzbar. Bei allen anderen Modellen wirkt der Trick nicht, weil der Controller den Befehl auf sein Region-Limit abriegelt oder der Meter den Gang-4-Weg nicht hat.
 
 ## Ist es dauerhaft
 
-Das Region-Schreiben ist persistent: Die offizielle App schreibt es nur einmal beim Binden, ein normaler Neustart liest es nur, also übersteht die Änderung das erneute Öffnen der App. Ein direktes Speed-Schreiben verhält sich wie das Setzen des Wertes in der App. Beides lässt sich durch einen niedrigeren Wert oder erneutes Binden in der App zurücksetzen.
+Nein - das ist sogar der Vorteil: der Gang-4-Trick ändert nur ein RAM-Byte, kein Flash. Ein Wechsel in Modus S oder ein Neustart stellt den Normalzustand wieder her, also je Fahrt neu *Entsperren* drücken. Kein Brick-Risiko, kein Flashen.
 
 ## Fehlersuche
 
 - **Der Scooter fehlt im Dialog.** Sicherstellen, dass er an und nah ist, Bluetooth aktiv ist und der Browser auf Android die Standortfreigabe hat. Dann *Alle Bluetooth-Geräte zeigen* anhaken.
 - **Fehler 255 im Log.** Der Scooter lehnt die Konto-ID ab. Meist wurde die alphanumerische Navee-ID statt der numerischen userId eingetragen. Siehe den Abschnitt *Einmalig: deine NAVEE Konto-userId finden*.
 - **Verbindet, aber keine Werte.** Im Log auf RX-Frames achten. Wenn die Authentifizierung scheitert (Fehler 255), steht das im Log.
-- **Ein Wert bleibt nicht.** Die Firmware klemmt ihn eventuell auf die aktuelle SKU. Erst die Region auf eine höhere SKU setzen, dann die Geschwindigkeit erneut schreiben.
+- **Entsperren bringt kein Tempo.** Dann ist es kein XT5 Ultra/Pro/Max. Bei anderen Modellen riegelt der Controller den Gang-4-Befehl auf sein Region-Limit ab, der Trick wirkt dort nicht.
 
 ## Datenschutz und Recht
 

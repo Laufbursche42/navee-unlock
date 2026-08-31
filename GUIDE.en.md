@@ -56,25 +56,25 @@ Network variant:
 1. **Open the page** in a supported browser.
 2. **Enter userId plus connect.** Enter your numeric account userId at the top (see the section above), then *Connect* becomes available. Press *Connect* and pick your scooter from the chooser. It appears by name (NAVEE...), exactly as in the official app. If it is not listed, tick *Show all Bluetooth devices* and look for it there. The tool authenticates automatically right after connecting.
 3. **Values appear automatically.** Right after connecting the tool reads the status and shows the region, SKU, max speed, limit, the serial number plus the telemetry. The raw frames are also written to the log as hex.
-4. **Set the speed.** Two independent ways:
-   - **Direct (recommended):** type a value under *Set speed* and press *Set max speed*. This sends the same command the app's own Max-speed screen uses. *Set limit* writes the custom speed limit instead. Any value is allowed.
-   - **Region route:** the region selects the SKU, which sets the default cap. *Scan values* tries the country values, reads the resulting max speed after each and fills in the best one; then press *Write region*.
+4. **Unlock the speed (XT5 Ultra, XT5 Pro, XT5 Max only).** Press *Unlock (up to 50.8 km/h)*. This sends the flash-free gear-4 command (BLE 0x58 = 4). On the XT5 Ultra it frees 50.8 km/h, on the XT5 Pro/Max about 40 km/h. *Lock* restores the normal mode (gear 3). The value is fixed by firmware, not adjustable, so there is no speed input field.
+   - Behaviour on the device: the display stays in D and the boost button does nothing. Switching to mode S or a reboot cancels the trick and restores the normal modes, so resend each ride.
+   - On every other model it does nothing: the controller re-clamps the command to its region limit or the meter has no gear-4 path. See the model list on the page.
 5. **Read status again** to confirm what the scooter now reports.
 
 ## How far does it go
 
-How far you can go depends on the model and its firmware. The official app offers different ceilings per model, roughly 32 to 70 km/h. The tool lets you enter any value, higher ones included. Whether the controller accepts a value or caps itself is not known in advance, so try different values and read the status afterwards to see what sticks.
+The gear-4 route is an XT5-family feature, proven across the whole firmware chain: XT5 Ultra reaches 50.8 km/h (confirmed on the device), XT5 Pro/Max about 40 km/h. The 50.8 is the firmware's hard ceiling, not settable higher. On every other model the trick has no effect, because the controller re-clamps the command to its region limit or the meter lacks the gear-4 path.
 
 ## Is it permanent
 
-The region write is persistent: the official app writes it only once at bind, a normal reconnect just reads it, so the change survives reopening the app. A direct speed write behaves like the app setting the value. Either can be changed back by writing a lower value or by rebinding in the app.
+No, and that is the upside: the gear-4 trick changes one RAM byte, not flash. Switching to mode S or a reboot restores the normal state, so press *Unlock* again each ride. No brick risk, no flashing.
 
 ## Troubleshooting
 
 - **The scooter is not in the chooser.** Make sure it is on and close, Bluetooth is on, and on Android the browser has location permission. Then tick *Show all Bluetooth devices*.
 - **Error 255 in the log.** The scooter rejects the account id. Most likely the alphanumeric Navee ID was entered instead of the numeric userId. See the section *One time: find your NAVEE account userId*.
 - **Connects but no values.** Check the log for RX frames. If authentication failed (error 255), the log says so.
-- **A value does not stick.** The firmware may cap it to the current SKU. Set the region to a higher SKU first, then write the speed again.
+- **Unlock does not add speed.** Then it is not an XT5 Ultra/Pro/Max. On other models the controller re-clamps the gear-4 command to its region limit, so the trick has no effect there.
 
 ## Privacy and legal
 

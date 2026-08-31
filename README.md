@@ -1,6 +1,6 @@
 # Laufbursche NAVEE unlock
 
-A static web page that talks to NAVEE scooters over Web Bluetooth. Connect to your scooter, it authenticates itself, and depending on the model the page lifts the speed throttle, sets the region/SKU, locks and unlocks the immobilizer and flips the per-model switches the scooter supports, straight from the browser. Nothing to install: no app store, no signing, no developer account. It runs in **Bluefy** on iOS and in **Chrome** on Android or desktop. The page is bilingual (German/English, switch in the header).
+A static web page that talks to NAVEE scooters over Web Bluetooth. Connect to your scooter, it authenticates itself, reads the status, flips the per-model switches the scooter supports and locks/unlocks the immobilizer, straight from the browser. On the XT5 family it also lifts the top speed with a flash-free gear-4 trick (no firmware flashing). Nothing to install: no app store, no signing, no developer account. It runs in **Bluefy** on iOS and in **Chrome** on Android or desktop. The page is bilingual (German/English, switch in the header).
 
 > **This is a feasibility study.** It exists to show what NAVEE's Bluetooth protocol makes possible, not to be a finished product. The protocol was reconstructed from the official app (com.navee.ucaret 2.1.6) and is documented byte for byte. Error-free operation is not promised and there is no warranty of any kind. Whatever you do with it, you do at your own risk.
 
@@ -32,11 +32,12 @@ Not covered: NAVEE e-bikes (PID prefix 27361 and 27391) and the Exo line (27681)
 
 Not every model exposes every function over Bluetooth. The page reads the scooter's own parameter report after connecting and shows only the switches that model actually reports, each preset to its current value. Nothing model-irrelevant is shown.
 
+The **speed unlock** is narrower than the rest of the tool. The gear-4 trick only raises the top speed on the **XT5 family** (XT5 Ultra confirmed at 50.8 km/h; XT5 Pro/Max code-supported at ~40 km/h). This was verified across the whole firmware chain: 40 controller decompiles plus the candidate meters. On every other model the controller re-clamps a high command to its region limit, or the meter has no gear-4 path. Status, switches and the immobilizer still work across the whole line.
+
 ## What it does
 
 - **Connect by name and authenticate automatically.** The scooter shows up by its advertised name, the page runs the challenge-response auth (five built-in AES keys) and reads the status by itself.
-- **Throttle lock/unlock in one button.** Enter an open value and a throttled value, both remembered by the browser; the single button applies the right one and shows the next action. This writes the maximum speed (opcode 0x6E), the same lever the app's own Max-speed screen uses. Any value is allowed, whether the firmware accepts a given value is the hardware test.
-- **Region / SKU route** (opcode 0x6F, subcommand 08). The region selects the SKU and thus the default cap; a scan tries the country values and reads the resulting max speed back.
+- **Flash-free speed unlock (gear-4 trick), one button.** Unlock sends the gear-4 command (opcode 0x58 = 4); the meter then commands the SKU top speed and the controller allows it. It changes one RAM byte, no flashing, no persistence, no brick risk; Lock sends gear 3 to revert. **This works only on the XT5 family** (XT5 Ultra confirmed at 50.8 km/h; XT5 Pro/Max code-supported at ~40 km/h). On every other model the controller re-clamps the command to its region limit, or the meter has no gear-4 path, so it does not raise speed. The speed is fixed by firmware, not adjustable.
 - **Per-model settings** where the scooter reports them: immobilizer lock (0x51), zero-start / start speed (0x6A), overspeed control OSC (0x82), traction control TCS (0x5F), slope assist (0x81), cruise control (0x52), long-range mode (0x6F/7), tail light (0x54), auto light (0x57), turn-signal sound (0x60), unit km/mph (0x55) and proximity key (0x61). Each row appears only if the model reports that field.
 - **Read the telemetry** the scooter sends back (region, SKU, max and limit speed, serial) and keep the raw notifications in an on-screen diagnostic log as plain hex.
 - **Help on every card** via the question-mark button, and a full guide in both languages.

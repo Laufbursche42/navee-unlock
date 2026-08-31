@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v40';
+const BUILD = 'v41';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -454,11 +454,14 @@ function curRegion(){
 function regUnlockCode(){ return ((($('region-open-in')||{}).value||'US').toUpperCase().replace(/[^A-Z]/g,'').slice(0,2))||'US'; }
 function regLockCode(){ return ((($('region-lock-in')||{}).value||'DE').toUpperCase().replace(/[^A-Z]/g,'').slice(0,2))||'DE'; }
 function regIsUnlocked(){ const r=curRegion(); return r!=null && r===regUnlockCode(); }
+// Speed unlock is the flash-free "gear 4" trick: BLE 0x58 writes the gear/drive-mode byte; setting it
+// to 4 makes the meter command the SKU top-speed value (fixed by firmware), which the controller caps
+// at up to 50.8 km/h. It is per-session (a physical gear change to S or a reboot reverts it), so this
+// is not persistent. speedUnlocked tracks only what THIS page last sent.
+let speedUnlocked=false;
 function updateRegionToggle(){
   const b=$('btn-regiontoggle'); if(!b) return;
-  b.textContent = regIsUnlocked()
-    ? (t('btnRegLock')||'Sperren')+' ('+regLockCode()+')'
-    : (t('btnRegUnlock')||'Entsperren')+' ('+regUnlockCode()+')';
+  b.textContent = speedUnlocked ? (t('btnSpeedLock')||'Sperren') : (t('btnSpeedUnlock')||'Entsperren (50,8 km/h)');
 }
 // Write a 2-letter region code into serial chars 8-9 via the factory 0xA2 config write.
 async function writeRegionCode(code){
@@ -484,12 +487,23 @@ async function writeRegionCode(code){
   }
   setTimeout(()=>{ log('write sent -> check the B9 line above: region '+code+' there means it took (power-cycle and test); unchanged means the controller rejected it (lock) or 0x74 reads the serial'); updateRegionToggle(); }, 900);
 }
-async function doRegionToggle(){
+// Send the flash-free gear-4 speed unlock (0x58 -> 4), or revert (0x58 -> 3 = normal drive mode).
+// No auth-lock or config-lock gate applies to the gear byte, so this works even where a region write
+// would be dropped.
+async function doSpeedUnlock(){
   if(!authed){ log('not authenticated'); return; }
-  if(lastLockState===1){ log('controller config-write is LOCKED (BE=0x1) -> this write would be dropped; region change on this unit needs hardware (SWD). Aborting.'); return; }
-  persistDrossel();
-  if(regIsUnlocked()){ await writeRegionCode(regLockCode()); await writeMaxSpeed(drLockedVal()); }
-  else { await writeRegionCode(regUnlockCode()); await writeMaxSpeed(drOpenVal()); }
+  await writeToggle(0x58, 4);
+  speedUnlocked=true; updateRegionToggle();
+  log('speed unlock: gear 4 sent -> meter commands the SKU top speed (up to 50.8 km/h). Per session; a gear change to S or a reboot reverts it.');
+}
+async function doSpeedLock(){
+  if(!authed){ log('not authenticated'); return; }
+  await writeToggle(0x58, 3);
+  speedUnlocked=false; updateRegionToggle();
+  log('speed lock: gear 3 sent -> back to normal drive mode.');
+}
+async function doRegionToggle(){
+  if(speedUnlocked) await doSpeedLock(); else await doSpeedUnlock();
 }
 async function doRawSend(){
   if(!writeCh){ log('not connected'); return; }
@@ -531,7 +545,7 @@ function hasAuthCreds(){
 function refreshButtons(){
   const on=connected;
   { const c=$('btn-conn'); if(c){ c.textContent = on ? t('btnDisconnect') : t('btnConnect'); c.disabled = on ? false : !hasAuthCreds(); } }
-  { const b=$('btn-regiontoggle'); if(b){ b.disabled=!on; ['region-open-in','region-lock-in','open-in','locked-in'].forEach(id=>{ const i=$(id); if(i) i.disabled=!on; }); } }
+  { const b=$('btn-regiontoggle'); if(b) b.disabled=!on; }
   { const b=$('btn-diag'); if(b) b.disabled=!on; }
   { const b=$('btn-raw'); if(b){ b.disabled=!on; const i=$('raw-in'); if(i) i.disabled=!on; } }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
@@ -781,9 +795,8 @@ async function maybeRunDeepAction(){
   if(!pendingDeepAction||!authed) return;
   const a=pendingDeepAction; pendingDeepAction=null;
   log('shortcut: '+a);
-  persistDrossel();
-  if(a==='unlock'){ await writeRegionCode(regUnlockCode()); await writeMaxSpeed(drOpenVal()); }
-  else { await writeRegionCode(regLockCode()); await writeMaxSpeed(drLockedVal()); }
+  if(a==='unlock'){ await doSpeedUnlock(); }
+  else { await doSpeedLock(); }
 }
 async function tryAutoReconnect(){
   if(!pendingDeepAction) return;                 // only auto-reconnect when a shortcut asked for it
