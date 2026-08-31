@@ -769,7 +769,7 @@ const HELP = {
   authhex: ['authhexTitle', 'authhexHelp'],
   disclaimer: ['footDisclaimer', 'disclaimerText'],
 };
-function openHelp(key){ const m=HELP[key]; if(!m) return; const dlg=$('help'); if(!dlg) return; $('help-title').textContent=t(m[0]); $('help-body').innerHTML=t(m[1]); if(typeof dlg.showModal==='function') dlg.showModal(); }
+function openHelp(key){ const m=HELP[key]; if(!m) return; const dlg=$('help'); if(!dlg) return; $('help-title').textContent=t(m[0]); $('help-body').innerHTML=t(m[1]); if(typeof dlg.showModal==='function') dlg.showModal(); } // scan-ok: HELP is a static developer-authored map, m[1] is always one of our own i18n body strings (moreHelp/countryHelp/accountHelp/authhexHelp/disclaimerText), no user input reaches it; same trusted-i18n case as the data-t line above
 function closeHelp(){ const d=$('help'); if(d&&d.close) d.close(); }
 function wireHelp(){
   document.querySelectorAll('.help-btn').forEach(b=> b.addEventListener('click', ()=> openHelp(b.getAttribute('data-help'))));
