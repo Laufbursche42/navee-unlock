@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v52';
+const BUILD = 'v53';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -514,16 +514,24 @@ async function connectDevice(dev){
   setStatus('connecting');
   device=dev;
   try{ if(device.id) localStorage.setItem('navee.device', device.id); }catch(e){}
+  try{ device.removeEventListener('gattserverdisconnected', onDisconnect); }catch(e){}   // avoid stacking on repeated connect attempts
   device.addEventListener('gattserverdisconnected', onDisconnect);
   // Android Web Bluetooth GATT ops fail transiently ("GATT operation failed for unknown reason"),
   // most often when the scooter is still held by the official app or the OS. Retry the GATT setup a
   // few times with a fresh connection before giving up.
   let lastErr=null, ok=false;
-  for(let attempt=1; attempt<=3 && !ok; attempt++){
+  for(let attempt=1; attempt<=4 && !ok; attempt++){
     try{
       const server=await device.gatt.connect();
-      await sleep(300);   // let Android finish GATT service discovery before we query the service (avoids "No Services matching UUID")
-      const svc=await server.getPrimaryService(SERVICE);
+      // Query the service tolerating the Android discovery race ("No Services matching UUID") with a
+      // couple of short retries, but bail immediately to a fresh connect if the link already dropped
+      // ("GATT Server is disconnected") - some scooters drop the connection when the app still holds it.
+      let svc=null, se=null;
+      for(let k=0;k<3;k++){
+        try{ svc=await server.getPrimaryService(SERVICE); break; }
+        catch(e){ se=e; if(!server.connected) throw e; await sleep(250); }
+      }
+      if(!svc) throw (se || new Error('service discovery failed'));
       writeCh=await svc.getCharacteristic(WRITE_CHAR);
       notifyCh=await svc.getCharacteristic(NOTIFY_CHAR);
       await notifyCh.startNotifications();
@@ -531,9 +539,9 @@ async function connectDevice(dev){
       ok=true;
     }catch(e){
       lastErr=e;
-      if(attempt<3) log('BLE setup attempt '+attempt+' failed ('+(e&&e.message||e)+') - retrying...');
+      if(attempt<4) log('BLE setup attempt '+attempt+' failed ('+(e&&e.message||e)+') - retrying...');
       try{ if(device.gatt&&device.gatt.connected) device.gatt.disconnect(); }catch(_){}
-      await sleep(700);
+      await sleep(800);
     }
   }
   if(!ok) throw (lastErr || new Error('GATT setup failed'));
