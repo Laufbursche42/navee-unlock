@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v48';
+const BUILD = 'v49';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -501,7 +501,8 @@ async function connect(){
       : { filters:[{namePrefix:'NAVEE'}], optionalServices:[SERVICE] };
     const dev=await navigator.bluetooth.requestDevice(opts);
     await connectDevice(dev);
-  }catch(e){ setStatus('error'); log('connect failed: '+e.message); }
+  }catch(e){ setStatus('error'); const m=(e&&e.message)||String(e); log('connect failed: '+m);
+    if(/GATT|unknown reason|connection/i.test(m)){ const h=t('logGattHint'); if(h) log(h); } }
 }
 // Connect to an already-chosen BluetoothDevice (used by connect() and by the shortcut auto-reconnect).
 async function connectDevice(dev){
@@ -509,12 +510,27 @@ async function connectDevice(dev){
   device=dev;
   try{ if(device.id) localStorage.setItem('navee.device', device.id); }catch(e){}
   device.addEventListener('gattserverdisconnected', onDisconnect);
-  const server=await device.gatt.connect();
-  const svc=await server.getPrimaryService(SERVICE);
-  writeCh=await svc.getCharacteristic(WRITE_CHAR);
-  notifyCh=await svc.getCharacteristic(NOTIFY_CHAR);
-  await notifyCh.startNotifications();
-  notifyCh.addEventListener('characteristicvaluechanged', onNotify);
+  // Android Web Bluetooth GATT ops fail transiently ("GATT operation failed for unknown reason"),
+  // most often when the scooter is still held by the official app or the OS. Retry the GATT setup a
+  // few times with a fresh connection before giving up.
+  let lastErr=null, ok=false;
+  for(let attempt=1; attempt<=3 && !ok; attempt++){
+    try{
+      const server=await device.gatt.connect();
+      const svc=await server.getPrimaryService(SERVICE);
+      writeCh=await svc.getCharacteristic(WRITE_CHAR);
+      notifyCh=await svc.getCharacteristic(NOTIFY_CHAR);
+      await notifyCh.startNotifications();
+      notifyCh.addEventListener('characteristicvaluechanged', onNotify);
+      ok=true;
+    }catch(e){
+      lastErr=e;
+      if(attempt<3) log('BLE setup attempt '+attempt+' failed ('+(e&&e.message||e)+') - retrying...');
+      try{ if(device.gatt&&device.gatt.connected) device.gatt.disconnect(); }catch(_){}
+      await sleep(700);
+    }
+  }
+  if(!ok) throw (lastErr || new Error('GATT setup failed'));
   connected=true; authed=false; autoReadDone=false; setStatus('connected');
   log('connected to '+(device.name||device.id)); refreshButtons();
   await sleep(150); await authenticate();
