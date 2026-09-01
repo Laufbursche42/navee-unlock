@@ -10,9 +10,9 @@ Schritt für Schritt durch das Laufbursche NAVEE Tool. Die Seite spricht über W
 
 ## Mit welchen Geräten es funktioniert
 
-Das Tool spricht das Standard-Scooter-Protokoll von NAVEE, dasselbe, das die offizielle App für die ganze Scooter-Linie nutzt. Die Auth-Schlüssel sind über diese Scooter hinweg gleich, deshalb redet das Tool mit jedem davon, nicht nur mit der XT5. Die NAVEE-E-Bikes und die Exo-Linie nutzen andere Bluetooth-Protokolle und werden **nicht** unterstützt.
+Das Tool spricht das Standard-Scooter-Protokoll von NAVEE, dasselbe, das die offizielle App für die ganze Scooter-Linie nutzt. Die Auth-Schlüssel sind über diese Scooter hinweg gleich, deshalb redet das Tool mit jedem davon, nicht nur mit der XT5. Die Seite erkennt dein Modell an der Seriennummer und zeigt die Funktionen sowie den Speed-Hebel nur dort, wo die Firmware sie hergibt. Die NAVEE-E-Bikes und die Exo-Linie nutzen andere Bluetooth-Protokolle und werden **nicht** unterstützt.
 
-## Die numerische Konto-userId ermitteln (XT5 Ultra, XT5 Pro, XT5 Max)
+## Die numerische Konto-userId ermitteln (jeder an ein Konto gebundene Roller)
 
 ### Worum es geht und warum es oft schiefgeht
 
@@ -54,41 +54,26 @@ Auf dem iPhone geht es ohne PC mit einer HTTPS-Mitschnitt-App wie **Http Catcher
 
 ### Route B - Android
 
-#### B1) Ohne Root - PC und HTTP Toolkit
+#### B1) Am einfachsten: Bluetooth-Log hochladen (ganz ohne PC, ohne Wireshark)
 
-Der bequemste Weg ohne Root. Du brauchst einen PC im selben WLAN und das kostenlose **HTTP Toolkit**.
-
-1. **HTTP Toolkit auf dem PC installieren** und starten (Windows/macOS/Linux).
-2. Im Startbildschirm die Kachel **"Android device via ADB"** wählen (Telefon per USB anstecken, USB-Debugging in den Entwickleroptionen aktiv). Alternativ "Android device via WiFi", wenn du den QR-Code und die App auf dem Telefon nutzt.
-3. HTTP Toolkit richtet den Proxy und - über ADB - sein Zertifikat automatisch ein. Bestätige am Telefon die Nachfragen (VPN-Erlaubnis und Zertifikat).
-4. **Wichtig bei aktuellem Android:** Apps vertrauen von Haus aus nur System-Zertifikaten. HTTP Toolkit umgeht das bei per ADB verbundenen Geräten automatisch (Frida-basiert) für die meisten Apps. Falls der NAVEE-Verkehr nicht im Klartext erscheint, hilft nur der Root-Weg B2.
-5. **Aufnahme läuft automatisch.** Jetzt die NAVEE-App öffnen und dich **neu einloggen**.
-6. In HTTP Toolkit links nach dem Host **`lj.naveetech.com`** filtern, den Login-POST anklicken und im **Response-Body** das Feld **`userId`** ablesen (Zahl, bis 10 Ziffern).
-
-#### B2) Mit Root - PCAPdroid mit System-Zertifikat
-
-Direkt auf dem Telefon, ohne PC, aber Root nötig. **PCAPdroid** aus F-Droid oder Play Store.
-
-1. **PCAPdroid installieren** und öffnen.
-2. In den Einstellungen **"TLS decryption"** aktivieren. PCAPdroid installiert dafür ein eigenes CA (mitmproxy-basiert).
-3. Da du Root hast, das PCAPdroid-CA **als System-Zertifikat** setzen: PCAPdroid bietet dazu den Punkt "Install certificate -> as system CA" an (nutzt Root, um das Zertifikat in den System-Store zu schreiben). Bestätigen und danach einmal neu starten, falls verlangt.
-4. In PCAPdroid als **"Target app"** die NAVEE-App auswählen, damit nur deren Verkehr gefiltert wird.
-5. Auf **Start** tippen (VPN-Nachfrage erlauben) und dann in der NAVEE-App **neu einloggen**.
-6. Aufnahme stoppen und die HTTP(S)-Verbindungen durchsehen. Den Aufruf zu **`lj.naveetech.com`** öffnen und im Antwort-JSON das Feld **`userId`** ablesen.
-
-#### B3) Ohne mitmproxy - BLE-HCI-Snoop-Log (liefert fertigen Auth-Frame)
-
-Dieser Weg umgeht die HTTPS-Mitschnitt ganz. Statt die userId als Zahl zu holen, ziehst du den **fertigen Auth-Frame** aus dem Bluetooth-Verkehr zwischen App und Roller und fügst ihn direkt in das Tool ein. Praktisch, wenn TLS-Pinning den HTTPS-Weg blockiert.
+Die Seite liest das Bluetooth-Log deines Android-Geräts und holt die userId selbst heraus. Nichts wird hochgeladen, alles bleibt lokal auf deinem Gerät.
 
 1. **Entwickleroptionen öffnen** (`Einstellungen -> Über das Telefon -> 7x auf die Build-Nummer tippen`).
-2. In den Entwickleroptionen **"Bluetooth-HCI-Snoop-Log aktivieren"** einschalten.
-3. **Bluetooth aus- und wieder einschalten**, damit das Log-Mitschreiben startet.
-4. Die NAVEE-App öffnen, dich einloggen und dich **normal mit dem Roller verbinden**, sodass die App die Authentifizierung über BLE durchführt. Kurz warten, bis die Verbindung steht.
-5. **Log auslesen.** Je nach Gerät liegt die Datei unter `btsnoop_hci.log` (per `adb pull` oder über ein Bug-Report-Log: `adb bugreport`). Die Datei mit **Wireshark** öffnen.
-6. In Wireshark nach dem BLE-Schreibvorgang der App auf die NAVEE-Characteristic filtern (ATT `Write` bzw. `Write Command`). Der **Auth-Frame** ist genau das Datenpaket, das die App kurz nach dem Verbindungsaufbau schreibt - er enthält bereits die userId in kodierter Form.
-7. Die Roh-Bytes dieses Frames als Hex kopieren und im Tool in das Feld **"Auth-Frame"** einfügen. Damit brauchst du die Zahl selbst nicht mehr separat.
+2. In den Entwickleroptionen das **Bluetooth-HCI-Snoop-Log** einschalten.
+3. **Bluetooth aus- und wieder einschalten**, damit das Mitschreiben startet.
+4. Einmal mit der **echten NAVEE-App** mit dem Roller verbinden, kurz warten, bis die Verbindung steht.
+5. Einen **Fehlerbericht** erstellen: Entwickleroptionen -> **Fehlerbericht** -> Interaktiver Bericht. Android packt die Log-Datei in ein ZIP, das du speichern oder teilen kannst.
+6. Auf der Seite unten den Bereich **"Android: Auth-Frame / btsnoop_hci.log statt userId"** aufklappen und das Fehlerbericht-ZIP (oder direkt die `btsnoop_hci.log`, falls dein Datei-Manager sie sieht) in das Upload-Feld ablegen.
+7. Fertig - die Seite erkennt die Anmeldung, Verbinden ist frei. Die userId bleibt lokal im Browser-Speicher (localStorage) deines Geräts, du machst das nur einmal.
 
-> Welche Characteristic und welcher Frame-Aufbau das genau sind, steht im BLE-Protokoll-Kapitel der Gesamtanalyse.
+#### B2) Alternative: die reine Zahl per PC auslesen (HTTP Toolkit)
+
+Wer lieber die Zahl selbst haben will und einen PC nutzt: mit dem kostenlosen **HTTP Toolkit**.
+
+1. HTTP Toolkit auf dem PC installieren und starten, dann die Kachel **"Android device via ADB"** wählen (Telefon per USB, USB-Debugging aktiv).
+2. HTTP Toolkit richtet Proxy und Zertifikat automatisch ein. Am Telefon die Nachfragen bestätigen.
+3. Die NAVEE-App öffnen und dich **neu einloggen**.
+4. Nach dem Host **`lj.naveetech.com`** filtern, den Login-POST anklicken und im **Response-Body** das Feld **`userId`** ablesen (Zahl, bis 10 Ziffern). Diese Zahl oben ins userId-Feld eintragen.
 
 ---
 
@@ -107,14 +92,26 @@ Zeigt das Tool **Fehler 255**, hast du mit hoher Wahrscheinlichkeit die falsche 
 1. **Seite öffnen** in einem unterstützten Browser.
 2. **userId eintragen und Verbinden.** Trage oben deine numerische Konto-userId ein (siehe Abschnitt davor), dann wird *Verbinden* frei. Auf *Verbinden* tippen und deinen Scooter im Dialog auswählen. Er erscheint unter seinem Namen (NAVEE...), genau wie in der offiziellen App. Falls er nicht auftaucht, den Haken *Alle Bluetooth-Geräte zeigen* setzen und dort suchen. Das Tool authentifiziert sich direkt nach dem Verbinden automatisch.
 3. **Werte erscheinen automatisch.** Gleich nach dem Verbinden liest das Tool den Status und zeigt Region, SKU, Max-Speed, Limit, die Seriennummer und die Telemetrie. Die rohen Frames stehen zusätzlich als Hex im Log.
-4. **Geschwindigkeit entsperren (nur XT5 Ultra, XT5 Pro, XT5 Max).** Auf *Entsperren (bis 50,8 km/h)* tippen. Das sendet den flash-freien Gang-4-Befehl (BLE 0x58 = 4). Am XT5 Ultra gibt das 50,8 km/h frei, am XT5 Pro/Max rund 40 km/h. *Sperren* stellt den Normalmodus wieder her (Gang 3). Der Wert ist fest von der Firmware vorgegeben, nicht einstellbar, deshalb gibt es kein Speed-Eingabefeld.
-   - Verhalten am Gerät: Das Display bleibt in D, die Boost-Taste ist ohne Funktion. Ein Wechsel in Modus S oder ein Neustart hebt den Trick auf und stellt die normalen Modi wieder her, also je Fahrt neu senden.
-   - Bei allen anderen Modellen bringt der Befehl nichts: der Controller riegelt den Befehl auf sein Region-Limit ab oder der Meter hat den Gang-4-Weg nicht. Siehe die Modell-Liste auf der Seite.
-5. **Erneut Status lesen** und prüfen, was der Scooter jetzt meldet.
+4. **Funktionen (Wegfahrsperre, Tempomat, Zero-Start).** Die Seite erkennt dein Modell an der Seriennummer und zeigt in der Karte *Funktionen* nur, was die Firmware dieses Modells setzen kann:
+   - **Wegfahrsperre** (0x51) - bei jedem Modell.
+   - **Tempomat** (0x52) - wo firmwareseitig belegt.
+   - **Zero-Start** Stufen 0 bis 5 (0x6A) - wo belegt; Stufe 0 ist der echte Zero-Start.
+   Die Hersteller-App blendet Tempomat auf EU-Geräten aus und bietet Zero-Start nur in der USA-Version - hier geht beides, wo das Modell es kann. Ein nicht erkanntes Modell zeigt Tempomat und Zero-Start als *unbestätigt*; ein Senden schadet nicht, ein Modell ohne die Funktion ignoriert den Befehl.
+5. **Geschwindigkeit freischalten (nur vier Familien).** Die Speed-Karte erscheint nur bei den Modellen mit belegtem flash-freien Gang-Hebel: XT5 Ultra/Pro/Max, UT5 Ultra X sowie E45/E60 Pro. *Speed freischalten* sendet den Gang-4-Befehl (BLE 0x58 = 4); der Meter kommandiert die firmwareseitig mögliche Höchstgeschwindigkeit, die Firmware kappt sie auf SKU und Region des Geräts. Der Hinweis in der Karte nennt den Bereich je Modell (XT5 Ultra 40,5 bis 50,8 je nach SKU; UT5 Ultra X bis 60; E45/E60 Pro bis etwa 32,5). *Zurücksetzen* stellt den Normalmodus wieder her (Gang 3). Es gibt kein Eingabefeld, weil der Wert nicht frei setzbar ist.
+   - Verhalten am Gerät: Das Display bleibt in D, die Boost-Taste ist ohne Funktion. Ein Wechsel in Modus S oder ein Neustart hebt den Trick auf, also je Fahrt neu senden.
+   - Bei allen anderen Modellen erscheint die Speed-Karte gar nicht, weil kein flash-freier Weg belegt ist: der Cap sitzt in der Flash-/SKU-Firmware oder der Controller ist drehmomentgeregelt ohne Speed-Sollwert.
+6. **Erneut Status lesen** und prüfen, was der Scooter jetzt meldet.
 
 ## Wie weit geht es
 
-Der Gang-4-Weg ist ein reines XT5-Familien-Feature, über die ganze Firmware-Kette code-belegt: XT5 Ultra erreicht 50,8 km/h (am Gerät bestätigt), XT5 Pro/Max rund 40 km/h. Die 50,8 sind die feste Obergrenze der Firmware, nicht höher setzbar. Bei allen anderen Modellen wirkt der Trick nicht, weil der Controller den Befehl auf sein Region-Limit abriegelt oder der Meter den Gang-4-Weg nicht hat.
+Der flash-freie Gang-Hebel ist über die ganze Firmware-Kette geprüft (Meter plus Controller zeile-für-zeile, jeder Fund adversarisch gegengeprüft). Er wirkt nur bei vier Familien und der erreichte Wert hängt an SKU sowie Region des konkreten Geräts:
+
+- **XT5 Ultra**: 40,5 bis 50,8 km/h je nach SKU-Byte. Die 50,8 sind im Code belegt, aber nicht per Messfahrt bestätigt.
+- **XT5 Pro/Max**: rund 50 km/h (SKU 8 bis etwa 65), abhängig von der internen Gang-Zuordnung.
+- **UT5 Ultra X**: bis 60 km/h auf unbeschränkter SKU. Die 70 aus der App sind nicht belegt.
+- **E45/E60 Pro**: bis etwa 32,5 km/h auf freizügiger Region, sonst gedrosselt.
+
+Bei allen anderen Modellen gibt es keinen flash-freien Weg: der echte Cap sitzt in der Flash-/SKU-Firmware oder der Controller ist drehmomentgeregelt ohne km/h-Sollwert. Auch die App-eigene Max-Speed-Funktion (Befehl 0x6E) wurde geprüft und als flash-frei wirkungslos widerlegt, deshalb bietet die Seite kein freies Setzen an - sie würde sonst eine Zahl versprechen, die die Firmware nicht hält.
 
 ## Ist es dauerhaft
 
@@ -125,7 +122,8 @@ Nein - das ist sogar der Vorteil: der Gang-4-Trick ändert nur ein RAM-Byte, kei
 - **Der Scooter fehlt im Dialog.** Sicherstellen, dass er an und nah ist, Bluetooth aktiv ist und der Browser auf Android die Standortfreigabe hat. Dann *Alle Bluetooth-Geräte zeigen* anhaken.
 - **Fehler 255 im Log.** Der Scooter lehnt die Konto-ID ab. Meist wurde die alphanumerische Navee-ID statt der numerischen userId eingetragen. Siehe den Abschnitt *Einmalig: deine NAVEE Konto-userId finden*.
 - **Verbindet, aber keine Werte.** Im Log auf RX-Frames achten. Wenn die Authentifizierung scheitert (Fehler 255), steht das im Log.
-- **Entsperren bringt kein Tempo.** Dann ist es kein XT5 Ultra/Pro/Max. Bei anderen Modellen riegelt der Controller den Gang-4-Befehl auf sein Region-Limit ab, der Trick wirkt dort nicht.
+- **Die Speed-Karte fehlt.** Dann ist das Modell keines der vier mit belegtem Hebel (XT5 Ultra/Pro/Max, UT5 Ultra X, E45/E60 Pro). Bei allen anderen gibt es keinen flash-freien Speed-Weg, deshalb wird die Karte gar nicht angezeigt.
+- **Freischalten bringt weniger als erhofft.** Der erreichte Wert wird von der Firmware auf SKU und Region deines Geräts begrenzt - siehe den Bereich im Hinweis der Speed-Karte.
 
 ## Datenschutz und Recht
 

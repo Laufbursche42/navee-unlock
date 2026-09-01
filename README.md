@@ -1,6 +1,6 @@
 # Laufbursche NAVEE unlock
 
-A static web page that talks to NAVEE scooters over Web Bluetooth. Connect to your scooter, it authenticates itself, reads the status, flips the per-model switches the scooter supports and locks/unlocks the immobilizer, straight from the browser. On the XT5 family it also lifts the top speed with a flash-free gear-4 trick (no firmware flashing). Nothing to install: no app store, no signing, no developer account. It runs in **Bluefy** on iOS and in **Chrome** on Android or desktop. The page is bilingual (German/English, switch in the header).
+A static web page that talks to NAVEE scooters over Web Bluetooth. Connect to your scooter, it authenticates itself, reads the status, detects your model from the serial and shows the drive functions that model's firmware supports: immobilizer, cruise control and zero-start. On four families it also lifts the top speed with a flash-free gear lever (no firmware flashing). Nothing to install: no app store, no signing, no developer account. It runs in **Bluefy** on iOS and in **Chrome** on Android or desktop. The page is bilingual (German/English, switch in the header).
 
 > **This is a feasibility study.** It exists to show what NAVEE's Bluetooth protocol makes possible, not to be a finished product. The protocol was reconstructed from the official app (com.navee.ucaret 2.1.6) and is documented byte for byte. Error-free operation is not promised and there is no warranty of any kind. Whatever you do with it, you do at your own risk.
 
@@ -26,19 +26,27 @@ Then open the printed address in a browser that supports Web Bluetooth.
 
 ## Which devices it works with
 
-The page speaks the standard NAVEE scooter protocol, the one the official app uses for the whole kick-scooter line (GATT service `0000d0ff-...`, `55 AA` frames). The connection matches the scooter by its advertised name (NAVEE...), exactly like the official app, and the five authentication keys are shared across these scooters, so the tool talks to any of them, not only the XT5 (PID prefix 2782).
+The page speaks the standard NAVEE scooter protocol, the one the official app uses for the whole kick-scooter line (GATT service `0000d0ff-...`, `55 AA` frames). The connection matches the scooter by its advertised name (NAVEE...), exactly like the official app, and the five authentication keys are shared across these scooters, so the tool talks to any of them, not only the XT5 (pids 2416/2443/2529).
 
-Not covered: NAVEE e-bikes (PID prefix 27361 and 27391) and the Exo line (27681). Those use different Bluetooth services and protocols and are out of scope for this page.
+Not covered: NAVEE e-bikes (pid 27361 and 27391) and the Exo line (27681). Those use different Bluetooth services and protocols and are out of scope for this page.
 
-Not every model exposes every function over Bluetooth. The page reads the scooter's own parameter report after connecting and shows only the switches that model actually reports, each preset to its current value. Nothing model-irrelevant is shown.
+Not every model exposes every function over Bluetooth. The page detects your model from the serial (the pid, characters 2 to 5) and shows the immobilizer, cruise control and zero-start where that model's firmware supports them, plus the app-style switches the scooter reports in its own parameter block. The immobilizer works on every model; an unrecognized model shows cruise and zero-start marked as unverified (harmless to try, an unsupported model ignores the command).
 
-The **speed unlock** is narrower than the rest of the tool. The gear-4 trick only raises the top speed on the **XT5 family** (XT5 Ultra confirmed at 50.8 km/h; XT5 Pro/Max code-supported at ~40 km/h). This was verified across the whole firmware chain: 40 controller decompiles plus the candidate meters. On every other model the controller re-clamps a high command to its region limit, or the meter has no gear-4 path. Status, switches and the immobilizer still work across the whole line.
+The **speed lever** is narrower than the rest of the tool and is shown only for the four families where a flash-free gear lever is proven end to end (meter and controller read line by line, then adversarially verified):
+
+- **XT5 Ultra**: 40.5 to 50.8 km/h depending on the unit SKU. The 50.8 is code-proven but not confirmed by a measured ride.
+- **XT5 Pro/Max**: about 50 km/h (SKU 8 up to ~65), depending on the internal gear mapping.
+- **UT5 Ultra X**: up to 60 km/h on an unrestricted SKU (the 70 the app offers is not proven).
+- **E45/E60 Pro**: up to about 32.5 km/h on a permissive region, otherwise region-limited.
+
+The achieved value is clamped by the firmware to the unit's own SKU and region, so it is a range, not a settable number. On every other model no flash-free path exists (the cap sits in the flash/SKU firmware, or the controller is torque-controlled with no speed setpoint), so the lever is not offered there. Status, the switches and the immobilizer still work across the whole line.
 
 ## What it does
 
 - **Connect by name and authenticate automatically.** The scooter shows up by its advertised name, the page runs the challenge-response auth (five built-in AES keys) and reads the status by itself.
-- **Flash-free speed unlock (gear-4 trick), one button.** Unlock sends the gear-4 command (opcode 0x58 = 4); the meter then commands the SKU top speed and the controller allows it. It changes one RAM byte, no flashing, no persistence, no brick risk; Lock sends gear 3 to revert. **This works only on the XT5 family** (XT5 Ultra confirmed at 50.8 km/h; XT5 Pro/Max code-supported at ~40 km/h). On every other model the controller re-clamps the command to its region limit, or the meter has no gear-4 path, so it does not raise speed. The speed is fixed by firmware, not adjustable.
-- **Per-model settings** where the scooter reports them: immobilizer lock (0x51), zero-start / start speed (0x6A), overspeed control OSC (0x82), traction control TCS (0x5F), slope assist (0x81), cruise control (0x52), long-range mode (0x6F/7), tail light (0x54), auto light (0x57), turn-signal sound (0x60), unit km/mph (0x55) and proximity key (0x61). Each row appears only if the model reports that field.
+- **Model detection and drive functions.** From the serial pid the page shows the immobilizer lock (0x51, every model), cruise control (0x52) and zero-start / start speed (0x6A) where the model's firmware supports them. The manufacturer app hides cruise on EU units and offers zero-start only in the USA version; this page shows both where the firmware supports them, which is the point of a tool of your own.
+- **Flash-free speed lever, one button, only where proven.** Where the connected model is one of the four with a verified lever, Unlock sends the gear-4 command (opcode 0x58 = 4); the meter then commands the SKU top speed and the controller allows it up to the unit's own SKU/region cap. It changes one RAM byte, no flashing, no persistence, no brick risk; Reset sends gear 3 to revert. The reachable speed depends on the unit SKU/region (the card shows the per-model range), it is not a free value. Free max-speed setting is intentionally not offered: the 0x6E max-speed write was verified to be flash-ineffective, so it would only promise a number the firmware does not honour.
+- **App-style switches** where the scooter reports them: overspeed control OSC (0x82), traction control TCS (0x5F), slope assist (0x81), long-range mode (0x6F/7), tail light (0x54), auto light (0x57), turn-signal sound (0x60), unit km/mph (0x55), proximity key (0x61) and more. Each row appears only if the model reports that field.
 - **Read the telemetry** the scooter sends back (region, SKU, max and limit speed, serial) and keep the raw notifications in an on-screen diagnostic log as plain hex.
 - **Help on every card** via the question-mark button, and a full guide in both languages.
 

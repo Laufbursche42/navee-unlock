@@ -194,6 +194,11 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
   border-radius: 8px; padding: 9px 11px; color: var(--value); white-space: pre-wrap; word-break: break-all;
   -webkit-user-select: all; user-select: all; }
 
+/* Bluetooth-log upload: the friendly "drop the file, we find the userId" box. */
+.logdrop { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0; background: var(--field); }
+.logdrop label { color: var(--value); font-weight: 600; }
+.logdrop input[type=file] { width: 100%; color: var(--muted); font-size: 12px; margin-top: 4px; }
+
 /* Model tile spans the full row: model names are longer than region/SKU codes. */
 .tile-wide { grid-column: 1 / -1; }
 /* A settings row shown for an unverified model (model not recognized from the serial). */

@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v43';
+const BUILD = 'v48';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -158,6 +158,87 @@ async function authRespFrame(challenge16,keyIdx){ const ct=await aesEcb16(KEYS[k
 function parseHexFrame(s){
   const clean=(s||'').replace(/[^0-9a-fA-F]/g,''); if(clean.length<8||clean.length%2) return null;
   return new Uint8Array(clean.match(/../g).map(h=>parseInt(h,16)));
+}
+
+// ---------- Bluetooth log -> auth frame (fully local, nothing uploaded) ----------
+// The user enables the Android "Bluetooth HCI snoop log", connects once with the real NAVEE app,
+// then drops the resulting file here. We pull the app's 0x30 auth frame (55 AA 00 30 .. FE FD) out of
+// the raw bytes, so the user never has to touch Wireshark or copy any hex. Accepts a raw btsnoop .log,
+// a .gz, or an Android bug-report .zip (unzipped in-browser via the native DecompressionStream).
+function scanAuthFrame(bytes){
+  // Return the LAST fully valid 55 AA 00 30 <len> <payload> <cksum> FE FD frame (most recent connect).
+  let found=null;
+  for(let i=0;i+8<bytes.length;i++){
+    if(bytes[i]!==0x55||bytes[i+1]!==0xAA||bytes[i+2]!==0x00||bytes[i+3]!==0x30) continue;
+    const len=bytes[i+4], total=len+8;
+    if(i+total>bytes.length) continue;
+    if(bytes[i+6+len]!==0xFE||bytes[i+7+len]!==0xFD) continue;
+    let s=0; for(let k=i;k<=i+4+len;k++) s=(s+bytes[k])&0xff;   // checksum = sum(0x55..last payload byte)
+    if(s!==bytes[i+5+len]) continue;
+    found=bytes.slice(i,i+total);
+  }
+  return found;
+}
+async function tryDecompress(bytes, fmt){
+  try{
+    if(typeof DecompressionStream!=='function') return null;
+    const ds=new DecompressionStream(fmt);
+    const st=new Blob([bytes]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(st).arrayBuffer());
+  }catch(e){ return null; }
+}
+function zipEntries(b){
+  const out=[], dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+  let eocd=-1;
+  for(let i=b.length-22;i>=0 && i>b.length-22-0x10000;i--){ if(b[i]===0x50&&b[i+1]===0x4b&&b[i+2]===0x05&&b[i+3]===0x06){ eocd=i; break; } }
+  if(eocd<0) return out;
+  let n=dv.getUint16(eocd+10,true), p=dv.getUint32(eocd+16,true);
+  for(let e=0;e<n && p+46<=b.length;e++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), compSize=dv.getUint32(p+20,true);
+    const nameLen=dv.getUint16(p+28,true), extraLen=dv.getUint16(p+30,true), commentLen=dv.getUint16(p+32,true), lho=dv.getUint32(p+42,true);
+    let name=''; for(let k=0;k<nameLen;k++) name+=String.fromCharCode(b[p+46+k]);
+    out.push({name,method,compSize,lho});
+    p+=46+nameLen+extraLen+commentLen;
+  }
+  return out;
+}
+function zipEntryData(b, ent){
+  const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);
+  if(dv.getUint32(ent.lho,true)!==0x04034b50) return null;
+  const start=ent.lho+30+dv.getUint16(ent.lho+26,true)+dv.getUint16(ent.lho+28,true);
+  return b.slice(start, start+ent.compSize);
+}
+async function extractAuthFromLog(file){
+  const raw=new Uint8Array(await file.arrayBuffer());
+  let f=scanAuthFrame(raw); if(f) return f;                                   // raw btsnoop .log or stored bytes
+  if(raw[0]===0x1f&&raw[1]===0x8b){ const g=await tryDecompress(raw,'gzip'); if(g){ f=scanAuthFrame(g); if(f) return f; } }
+  if(raw[0]===0x50&&raw[1]===0x4b){                                           // a ZIP (Android bug report)
+    const ents=zipEntries(raw);
+    ents.sort((a,b2)=>(/(btsnoop|bluetooth|bt)/i.test(b2.name)?1:0)-(/(btsnoop|bluetooth|bt)/i.test(a.name)?1:0));
+    for(const ent of ents){
+      const data=zipEntryData(raw,ent); if(!data) continue;
+      let dec = ent.method===0 ? data : await tryDecompress(data,'deflate-raw');
+      if(!dec) continue;
+      f=scanAuthFrame(dec); if(f) return f;
+      if(dec[0]===0x1f&&dec[1]===0x8b){ const g=await tryDecompress(dec,'gzip'); if(g){ f=scanAuthFrame(g); if(f) return f; } }
+    }
+  }
+  return null;
+}
+async function handleLogFile(file){
+  if(!file) return;
+  log((t('logParsing')||'reading log')+': '+file.name);
+  try{
+    const f=await extractAuthFromLog(file);
+    if(!f){ log(t('logNoFrame')||'no auth frame found in the log. Enable the Bluetooth HCI snoop log, then connect once with the real NAVEE app, then upload the log/bug-report.'); return; }
+    const hexStr=hex(f);
+    const ah=$('authhex-in'); if(ah){ ah.value=hexStr; const det=ah.closest&&ah.closest('details'); if(det) det.open=true; }
+    const u=$('uid-in'); if(u){ u.value=''; try{ localStorage.setItem('navee.uid',''); }catch(e){} }
+    try{ localStorage.setItem('navee.authhex', hexStr); }catch(e){}
+    log(t('logFrameFromLog')||'auth frame found in the log and stored -> Connect is ready.');
+    if(!connected) refreshButtons();
+  }catch(e){ log('log parse failed: '+(e&&e.message||e)); }
 }
 
 // ---------- BLE ----------
@@ -710,11 +791,32 @@ function wireControls(){
   $('btn-copy-log').addEventListener('click', copyLog);
   $('btn-clear-log').addEventListener('click', clearLog);
   // Account userId: prefill from storage, remember on edit, and gate the connect button on it.
-  // Smart paste: if a whole login response (or any blob) is pasted, pull the userId out of it;
-  // otherwise keep digits only. The account userId is a 32-bit int, so at most 10 digits.
+  // Smart paste: a whole login response -> pull the userId out of it; a pasted 0x30 auth frame ->
+  // it is NOT the numeric userId (the id sits hex-encoded inside it), so route it to the Auth-frame
+  // field instead of stripping it to garbage digits; anything else -> keep digits only (userId is a
+  // 32-bit int, at most 10 digits).
   { const u=$('uid-in'); if(u){ try{ const s=localStorage.getItem('navee.uid'); if(s) u.value=s; }catch(e){}
-      u.addEventListener('input', ()=>{ const m=u.value.match(/user_?id["']?\s*[:=]\s*"?(\d{1,10})/i); const v = m ? m[1] : u.value.replace(/[^0-9]/g,''); if(v!==u.value) u.value=v; try{ localStorage.setItem('navee.uid', u.value.trim()); }catch(e){} if(!connected) refreshButtons(); }); } }
-  ['authhex-in'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('input', ()=>{ if(!connected) refreshButtons(); }); });
+      u.addEventListener('input', ()=>{
+        const raw=u.value.trim();
+        const f=parseHexFrame(raw);
+        if(f && f.length>=9 && f[0]===0x55 && f[1]===0xAA && f[3]===0x30){   // an auth frame was pasted here by mistake
+          const ah=$('authhex-in');
+          if(ah){ ah.value=raw; const det=ah.closest&&ah.closest('details'); if(det) det.open=true; }
+          u.value='';
+          try{ localStorage.setItem('navee.uid',''); }catch(e){}
+          log(t('logFrameToAuth') || 'auth frame detected -> moved to the Auth-frame field under Advanced. That frame is not the numeric userId.');
+          if(!connected) refreshButtons();
+          return;
+        }
+        const m=u.value.match(/user_?id["']?\s*[:=]\s*"?(\d{1,10})/i);
+        const v = m ? m[1] : u.value.replace(/[^0-9]/g,'');
+        if(v!==u.value) u.value=v;
+        try{ localStorage.setItem('navee.uid', u.value.trim()); }catch(e){}
+        if(!connected) refreshButtons();
+      }); } }
+  { const ah=$('authhex-in'); if(ah){ try{ const s=localStorage.getItem('navee.authhex'); if(s&&!ah.value) ah.value=s; }catch(e){}
+      ah.addEventListener('input', ()=>{ try{ localStorage.setItem('navee.authhex', ah.value.trim()); }catch(e){} if(!connected) refreshButtons(); }); } }
+  { const lf=$('log-in'); if(lf) lf.addEventListener('change', ()=>{ const file=lf.files&&lf.files[0]; handleLogFile(file); lf.value=''; }); }
   { const cb=$('unbound'); if(cb) cb.addEventListener('change', ()=>{ if(!connected) refreshButtons(); }); }
 }
 
@@ -840,6 +942,7 @@ function wireDocViewer(){
     if(jump){ e.preventDefault(); const body=$('doc-body'); const tgt=body&&body.querySelector('#'+CSS.escape(jump.getAttribute('data-anchor'))); if(tgt) body.scrollTop=tgt.offsetTop-body.offsetTop; return; }
     const a=e.target.closest('[data-doc], [data-docfile]'); if(!a) return;
     e.preventDefault();
+    { const h=$('help'); if(h&&h.open&&h.close) h.close(); }   // if a doc link was clicked inside the help popup, close it first
     const file=a.getAttribute('data-docfile'), titleKey=a.getAttribute('data-t')||'';
     if(file) openDocFile(file,'',titleKey); else openDoc(a.getAttribute('data-doc'),'',titleKey);
   });
@@ -848,7 +951,8 @@ function wireDocViewer(){
 
 // ---------- help modal ----------
 const HELP = {
-  fn:      ['fnHelpTitle', 'fnHelp'],
+  fn:       ['fnHelpTitle', 'fnHelp'],
+  logupload:['logUploadTitle', 'logUploadHelp'],
   more:    ['moreTitle', 'moreHelp'],
   country: ['s4Title', 'countryHelp'],
   account: ['accountTitle', 'accountHelp'],
