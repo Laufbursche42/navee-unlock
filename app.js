@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v49';
+const BUILD = 'v50';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -247,6 +247,11 @@ let device=null, writeCh=null, notifyCh=null, connected=false, authed=false, cur
 // status reads. We mirror it once per connection.
 async function afterAuth(){
   if(afterAuthDone) return; afterAuthDone=true;
+  await afterConnectCommon();
+}
+// Runs once per connection, after auth (if a userId was given) OR directly after connect when none was
+// given - the normal commands and the status reads need no auth (meter dispatcher has no auth gate).
+async function afterConnectCommon(){
   await writeTimeSync();
   autoRead();
   maybeRunDeepAction();
@@ -263,7 +268,7 @@ async function writeTimeSync(){
 }
 // Read status once, automatically, right after authentication so the live values and the
 // model-specific settings appear without the user pressing Read.
-function autoRead(){ if(autoReadDone) return; autoReadDone=true; setTimeout(()=>{ if(authed) readStatus(); }, 500); }
+function autoRead(){ if(autoReadDone) return; autoReadDone=true; setTimeout(()=>{ if(writeCh) readStatus(); }, 500); }
 let waiters=[];   // resolve on next report of a given cmd
 function waitReport(cmd, ms=3000){
   return new Promise(res=>{ const w={cmd,res}; waiters.push(w); setTimeout(()=>{ waiters=waiters.filter(x=>x!==w); res(null); }, ms); });
@@ -517,6 +522,7 @@ async function connectDevice(dev){
   for(let attempt=1; attempt<=3 && !ok; attempt++){
     try{
       const server=await device.gatt.connect();
+      await sleep(300);   // let Android finish GATT service discovery before we query the service (avoids "No Services matching UUID")
       const svc=await server.getPrimaryService(SERVICE);
       writeCh=await svc.getCharacteristic(WRITE_CHAR);
       notifyCh=await svc.getCharacteristic(NOTIFY_CHAR);
@@ -533,7 +539,12 @@ async function connectDevice(dev){
   if(!ok) throw (lastErr || new Error('GATT setup failed'));
   connected=true; authed=false; autoReadDone=false; setStatus('connected');
   log('connected to '+(device.name||device.id)); refreshButtons();
-  await sleep(150); await authenticate();
+  await sleep(150);
+  // The userId auth (0x30) is OPTIONAL: the meter dispatches every normal command with no auth gate
+  // (verified in the firmware). Run auth only if a userId / auth frame was supplied; otherwise read
+  // the status directly and enable the features.
+  if(hasAuthCreds()){ await authenticate(); }
+  else { log('no userId supplied - the normal features and status reads need no auth; continuing directly'); afterAuthDone=true; await afterConnectCommon(); }
 }
 
 // Build the 0x30 AUTH_INIT frame from the pasted hex frame or from the userId field. Returns null only
@@ -568,7 +579,7 @@ async function sendPhase2Init(){
 }
 
 async function readStatus(){
-  if(!authed){ log('not authenticated yet'); return; }
+  if(!writeCh){ log('not connected'); return; }
   await sendFrame(readFrame(CMD.READ_SN));     // 0x74 -> serial/region (source of the SKU)
   await sleep(300);
   await sendFrame(readFrame(CMD.READ_PARAMS)); // 0x70 -> full param block incl. speeds
@@ -581,14 +592,14 @@ async function readStatus(){
 // ----- writers -----
 // Direct custom speed limit (0x6B). enabled sets bit7 (limit active).
 async function writeLimitSpeed(kmh, enabled){
-  if(!authed){ log('not authenticated'); return; }
+  if(!writeCh){ log('not connected'); return; }
   const val=((kmh&0x7f) | (enabled?0x80:0)) & 0xff;
   await sendFrame(writeFrame(CMD.LIMIT_SPEED, [val]));
   log('limit speed -> '+(kmh&0x7f)+' km/h '+(enabled?'(on)':'(off)'));
 }
 // Direct max speed (0x6E, subcmd 01).
 async function writeMaxSpeed(kmh){
-  if(!authed){ log('not authenticated'); return; }
+  if(!writeCh){ log('not connected'); return; }
   await sendFrame(writeFrame(CMD.MAX_SPEED, [0x01, kmh&0xff]));
   log('max speed -> '+(kmh&0xff)+' km/h');
 }
@@ -598,25 +609,25 @@ function persistDrossel(){ try{ localStorage.setItem('navee.open', String(drOpen
 function loadDrossel(){ try{ const o=localStorage.getItem('navee.open'), l=localStorage.getItem('navee.locked'); if(o&&$('open-in')) $('open-in').value=o; if(l&&$('locked-in')) $('locked-in').value=l; }catch(e){} }
 // Direct startup speed (0x6A). value 0 = zero-start, higher = push-to-start threshold.
 async function writeStartSpeed(v){
-  if(!authed){ log('not authenticated'); return; }
+  if(!writeCh){ log('not connected'); return; }
   await sendFrame(writeFrame(CMD.START_SPEED, [v&0xff]));
   log('start speed -> '+(v&0xff));
 }
 // Single-byte setting write, e.g. a 0/1 toggle: 55 AA 00 <cmd> 01 <v> ... (BleHandler.k)
 async function writeToggle(cmd, v){
-  if(!authed){ log('not authenticated'); return; }
+  if(!writeCh){ log('not connected'); return; }
   await sendFrame(writeFrame(cmd, [v&0xff]));
   log('set 0x'+cmd.toString(16)+' -> '+(v&0xff));
 }
 // Param sub-command write: 55 AA 00 <cmd> 02 <sub> <v> ... (BleHandler.l), e.g. 0x6F long-range.
 async function writeSub(cmd, sub, v){
-  if(!authed){ log('not authenticated'); return; }
+  if(!writeCh){ log('not connected'); return; }
   await sendFrame(writeFrame(cmd, [sub&0xff, v&0xff]));
   log('set 0x'+cmd.toString(16)+' sub '+sub+' -> '+(v&0xff));
 }
 // Sound (0x6C): volume byte with bit7 = sound on, second byte = language (0). {vol|0x80, 0}
 async function writeSound(v){
-  if(!authed){ log('not authenticated'); return; }
+  if(!writeCh){ log('not connected'); return; }
   await sendFrame(writeFrame(0x6C, [((v&0x7f)|0x80)&0xff, 0]));
   log('sound volume -> '+(v&0x7f));
 }
@@ -645,7 +656,7 @@ function updateRegionToggle(){
 }
 // Write a 2-letter region code into serial chars 8-9 via the factory 0xA2 config write.
 async function writeRegionCode(code){
-  if(!authed){ log('not authenticated'); return; }
+  if(!writeCh){ log('not connected'); return; }
   if(!/^[A-Z]{2}$/.test(code)){ log('region code must be 2 letters'); return; }
   if(!lastSerialData || lastSerialData.length<17){ log('reading serial/config first...'); await sendFrame(readFrame(CMD.READ_SN)); await sleep(700); }
   if(!lastSerialData || lastSerialData.length<17){ log('could not read serial - aborting region write'); return; }
@@ -671,13 +682,13 @@ async function writeRegionCode(code){
 // No auth-lock or config-lock gate applies to the gear byte, so this works even where a region write
 // would be dropped.
 async function doSpeedUnlock(){
-  if(!authed){ log('not authenticated'); return; }
+  if(!writeCh){ log('not connected'); return; }
   await writeToggle(0x58, 4);
   speedUnlocked=true; updateRegionToggle();
   log('speed unlock: gear 4 sent -> meter commands the SKU top speed for '+(detectedModel||'this model')+'. The firmware clamps it to the unit SKU/region. Per session; a gear change to S or a reboot reverts it.');
 }
 async function doSpeedLock(){
-  if(!authed){ log('not authenticated'); return; }
+  if(!writeCh){ log('not connected'); return; }
   await writeToggle(0x58, 3);
   speedUnlocked=false; updateRegionToggle();
   log('speed lock: gear 3 sent -> back to normal drive mode.');
@@ -691,12 +702,15 @@ async function doRawSend(){
   if(!bytes){ log('raw: invalid hex'); return; }
   try{ await sendFrame(bytes); }catch(e){ log('raw send failed: '+(e&&e.message||e)); }
 }
-// Read-only factory diagnostic: enter line-test (this un-gates the readback echo), then read the
-// config-write lock (BE) and the live config (B9). Nothing is written. Line-test clears on power-cycle.
+// Factory diagnostic: enter line-test (this un-gates the readback echo), then read the config-write
+// lock (BE) and the live config (B9). NOTE: this is NOT side-effect-free. A0 sets the factory/auth
+// session byte 0x208c38 (verified in the meter firmware, FUN_08019f7c) and enters line-test (the
+// display goes dark); the exit path (A0 00) very likely triggers a reset. It writes no config, but it
+// is not a passive read. Use only when you want the controller config-lock state.
 async function doDiag(){
   if(!writeCh){ log('not connected'); return; }
-  log('--- diagnose (read-only): A0 01 -> BE -> B9 -> A0 00 ---');
-  log('note: line-test blanks the display; it is turned back on at the end (A0 00)');
+  log('--- diagnose (line-test): A0 01 -> BE -> B9 -> A0 00 ---');
+  log('note: A0 enters factory line-test (display goes dark, sets the factory/auth state); exit A0 00 likely resets the meter');
   try{
     await sendFrame(factoryFrame(0xA0,[0x01]));   // enter BLE line-test -> readback replies now echo to BLE (display goes dark)
     await sleep(700);
@@ -724,7 +738,7 @@ function hasAuthCreds(){
 }
 function refreshButtons(){
   const on=connected;
-  { const c=$('btn-conn'); if(c){ c.textContent = on ? t('btnDisconnect') : t('btnConnect'); c.disabled = on ? false : !hasAuthCreds(); } }
+  { const c=$('btn-conn'); if(c){ c.textContent = on ? t('btnDisconnect') : t('btnConnect'); c.disabled = false; } }   // userId is optional - Connect is always available
   { const b=$('btn-regiontoggle'); if(b) b.disabled=!on; }
   { const b=$('btn-diag'); if(b) b.disabled=!on; }
   { const b=$('btn-raw'); if(b){ b.disabled=!on; const i=$('raw-in'); if(i) i.disabled=!on; } }
@@ -998,7 +1012,7 @@ function parseDeepLink(){
   }catch(e){}
 }
 async function maybeRunDeepAction(){
-  if(!pendingDeepAction||!authed) return;
+  if(!pendingDeepAction||!writeCh) return;
   const a=pendingDeepAction; pendingDeepAction=null;
   log('shortcut: '+a);
   if(a==='unlock'){ await doSpeedUnlock(); }
