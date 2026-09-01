@@ -148,7 +148,7 @@ window.I18N = {
     logParsing: "Log wird gelesen (lokal auf deinem Gerät)",
     logNoFrame: "Kein Auth-Frame im Log gefunden. Prüfe: Snoop-Log war an, dann einmal mit der echten NAVEE-App verbinden, dann erst die Datei oder den Fehlerbericht hochladen.",
     logFrameFromLog: "Auth-Frame im Log gefunden und gespeichert - Verbinden ist frei. Beim nächsten Mal geht es direkt.",
-    logGattHint: "Tipp: 'GATT operation failed' heißt meist, dass der Roller noch mit der NAVEE-App oder dem Handy verbunden ist - er erlaubt nur eine Verbindung gleichzeitig. Schließe die NAVEE-App ganz (aus dem App-Wechsler wischen), schalte Bluetooth einmal aus und wieder an (oder entkopple den Roller in den Android-Bluetooth-Einstellungen), wecke den Roller auf und drücke dann erneut Verbinden.",
+    logGattHint: "Tipp: 'GATT operation failed' heißt meist, dass die NAVEE-App die eine erlaubte BLE-Verbindung noch hält. Beende die App per 'Stopp erzwingen' (Einstellungen -> Apps -> NAVEE -> Stopp erzwingen) - nur aus dem App-Wechsler wischen reicht oft nicht, Android hält die Verbindung im Hintergrund. Danach Bluetooth einmal aus und wieder an, Roller aufwecken, dann erneut Verbinden. Der Roller steht nicht in den Bluetooth-Einstellungen, das ist normal (BLE ohne Kopplung), dort gibt es nichts zu entfernen.",
     btnClearId: "Gespeicherte userId/Anmeldung löschen",
     logCleared: "Gespeicherte userId, Auth-Frame und gemerkter Roller aus diesem Browser gelöscht.",
 
@@ -333,7 +333,7 @@ window.I18N = {
     logParsing: "reading the log (local, on your device)",
     logNoFrame: "No auth frame found in the log. Check: the snoop log was on, then connect once with the real NAVEE app, then upload the file or the bug report.",
     logFrameFromLog: "Auth frame found in the log and stored - Connect is ready. Next time it just works.",
-    logGattHint: "Tip: 'GATT operation failed' usually means the scooter is still held by the NAVEE app or the phone - it allows only one connection at a time. Fully close the NAVEE app (swipe it away), turn Bluetooth off and on once (or unpair the scooter in Android Bluetooth settings), wake the scooter, then press Connect again.",
+    logGattHint: "Tip: 'GATT operation failed' usually means the NAVEE app still holds the one allowed BLE connection. Force-stop the app (Settings -> Apps -> NAVEE -> Force stop) - swiping it away is often not enough, Android keeps the connection in the background. Then turn Bluetooth off and on once, wake the scooter, and press Connect again. The scooter does not appear in the Bluetooth settings, that is normal (BLE without pairing), there is nothing to remove there.",
     btnClearId: "Delete stored userId/login",
     logCleared: "Stored userId, auth frame and remembered scooter deleted from this browser.",
 
