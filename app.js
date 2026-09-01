@@ -31,7 +31,7 @@
 //                                    (BleHandlerDevicePort CountryConfig / BleHandler time sync)
 //   For an XT5 (PID prefix 2782) the app itself offers max speed up to 32 km/h. Values beyond that
 //   are not exercised by the app and depend on what the firmware accepts (hardware test).
-const BUILD = 'v50';
+const BUILD = 'v51';
 // A bound XT5 only authenticates the account it was bound to: the 0x30 init carries the numeric
 // account userId (ByteUtil.s), and the scooter answers a wrong id with errcode 0xFF *before* any
 // challenge (verified against the decompile + a real device log). A random id only works on an
@@ -744,6 +744,15 @@ function refreshButtons(){
   { const b=$('btn-raw'); if(b){ b.disabled=!on; const i=$('raw-in'); if(i) i.disabled=!on; } }
   SETTINGS.forEach(s=>{ const b=$(s.btn), sel=$(s.sel); if(b) b.disabled=!on; if(sel) sel.disabled=!on; });
 }
+// Forget the stored login: the userId, the extracted/pasted auth frame and the remembered scooter.
+// Everything lives only in this browser's localStorage; nothing is on any server.
+function clearStoredAuth(){
+  ['navee.uid','navee.authhex','navee.device'].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  const u=$('uid-in'); if(u) u.value='';
+  const ah=$('authhex-in'); if(ah) ah.value='';
+  log(t('logCleared')||'stored userId / auth frame / remembered scooter deleted from this browser');
+  if(!connected) refreshButtons();
+}
 
 // Extra settings: each row is a <select> plus a Set button. All opcodes/payloads are byte-exact
 // from the app's own settings screens. `off` is the field's offset in the 0x70 param report; a row
@@ -847,6 +856,7 @@ function wireControls(){
   { const ah=$('authhex-in'); if(ah){ try{ const s=localStorage.getItem('navee.authhex'); if(s&&!ah.value) ah.value=s; }catch(e){}
       ah.addEventListener('input', ()=>{ try{ localStorage.setItem('navee.authhex', ah.value.trim()); }catch(e){} if(!connected) refreshButtons(); }); } }
   { const lf=$('log-in'); if(lf) lf.addEventListener('change', ()=>{ const file=lf.files&&lf.files[0]; handleLogFile(file); lf.value=''; }); }
+  { const cl=$('btn-clearid'); if(cl) cl.addEventListener('click', e=>{ e.preventDefault(); clearStoredAuth(); }); }
   { const cb=$('unbound'); if(cb) cb.addEventListener('change', ()=>{ if(!connected) refreshButtons(); }); }
 }
 
