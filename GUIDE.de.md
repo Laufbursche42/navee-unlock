@@ -10,7 +10,9 @@ Schritt für Schritt durch das Laufbursche NAVEE Tool. Die Seite spricht über W
 
 ## Mit welchen Geräten es funktioniert
 
-Das Tool spricht das Standard-Scooter-Protokoll von NAVEE, dasselbe, das die offizielle App für die ganze Scooter-Linie nutzt. Die Auth-Schlüssel sind über diese Scooter hinweg gleich, deshalb redet das Tool mit jedem davon, nicht nur mit der XT5. Die Seite erkennt dein Modell an der Seriennummer und zeigt die Funktionen sowie den Speed-Hebel nur dort, wo die Firmware sie hergibt. Die NAVEE-E-Bikes und die Exo-Linie nutzen andere Bluetooth-Protokolle und werden **nicht** unterstützt.
+**Zum Entsperren funktioniert diese Seite nur mit diesen Modellen:** NAVEE XT5 Ultra, XT5 Pro/Max, UT5 Ultra X sowie E45/E60 Pro. Bei allen anderen Modellen (etwa dem NT5) sitzt die Drossel fest in der Firmware - dort ist ein Firmware-Patch nötig, der auf den Scooter geflasht werden muss.
+
+Ansonsten spricht das Tool das Standard-Scooter-Protokoll von NAVEE, dasselbe, das die offizielle App für die ganze Scooter-Linie nutzt. Die Auth-Schlüssel sind über diese Scooter hinweg gleich, deshalb redet das Tool mit jedem davon (nicht nur mit der XT5) und zeigt Status, Schalter und die Wegfahrsperre auch dort. Nur der Speed-Hebel bleibt den oben genannten Modellen vorbehalten. Die NAVEE-E-Bikes und die Exo-Linie nutzen andere Bluetooth-Protokolle und werden **nicht** unterstützt.
 
 ## Die numerische Konto-userId ermitteln (jeder an ein Konto gebundene Roller)
 

@@ -6,6 +6,8 @@ A static web page that talks to NAVEE scooters over Web Bluetooth. Connect to yo
 
 **Open the web app: [laufbursche42.github.io/navee-unlock](https://laufbursche42.github.io/navee-unlock/)**
 
+**On Android?** There is a native Android app that does the same over Bluetooth, without a browser: **[nv-lb-edition](https://github.com/Laufbursche42/nv-lb-edition)**. It sidesteps the Web Bluetooth quirks - some phones, for example Samsung with Auto Blocker on, block the browser connection. This web page is the way in on iOS.
+
 Or run it yourself, no build step, no dependencies: clone the repo and serve the folder over a local HTTP server. Opening `index.html` directly as a `file://` URL will not work, the page fetches its own documents and browsers block that over `file://`.
 
 ```

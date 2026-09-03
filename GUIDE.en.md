@@ -10,7 +10,9 @@ A step-by-step walkthrough of the Laufbursche NAVEE Tool. The page talks to your
 
 ## Which devices it works with
 
-The tool speaks the standard NAVEE scooter protocol, the same one the official app uses for the whole scooter line. The authentication keys are shared across these scooters, so the tool talks to any of them, not only the XT5. NAVEE e-bikes and the Exo line use different Bluetooth protocols and are **not** covered.
+**Unlocking works only with these models:** NAVEE XT5 Ultra, XT5 Pro/Max, UT5 Ultra X and E45/E60 Pro. On every other model (for example the NT5) the cap sits firmly in the firmware - there it needs a firmware patch flashed to the scooter.
+
+Otherwise the tool speaks the standard NAVEE scooter protocol, the same one the official app uses for the whole scooter line. The authentication keys are shared across these scooters, so the tool talks to any of them (not only the XT5) and shows status, the switches and the immobilizer there too. Only the speed lever stays limited to the models listed above. NAVEE e-bikes and the Exo line use different Bluetooth protocols and are **not** covered.
 
 ## One time: find your NAVEE account userId
 
