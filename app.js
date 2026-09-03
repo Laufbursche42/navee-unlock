@@ -116,7 +116,7 @@ const SPEED = {
   '2754':['E60 Pro: bis etwa 32,5 km/h auf freizügiger Region, sonst region-gedrosselt.',
           'E60 Pro: up to about 32.5 km/h on a permissive region, otherwise region-limited.'],
 };
-let detectedModel=null, detectedCaps=null, detectedSpeed=null;   // detectedCaps = [name, cruise, kick]; detectedSpeed = [deHint, enHint] or null
+let detectedModel=null, detectedCaps=null, detectedSpeed=null, detectedSku=null;   // detectedCaps = [name, cruise, kick]; detectedSpeed = [deHint, enHint] or null; detectedSku = EUR/ITA/USA
 
 // ---------- helpers ----------
 const $ = id => document.getElementById(id);
@@ -388,7 +388,7 @@ function decodeSN(f){
   lastSerialData = Array.from(p);           // raw config block, for region read-modify-write
   let sn=''; for(const c of p){ if(c>=0x20&&c<0x7f) sn+=String.fromCharCode(c); }
   sn=sn.trim();
-  if(sn.length>=10){ const area=sn.substring(8,10); $('t-sn').textContent=sn; $('t-region').textContent=area; $('t-sku').textContent=skuOf(area); log('serial '+sn+' -> region '+area+' (SKU '+skuOf(area)+')'); updateRegionToggle(); detectModel(sn); }
+  if(sn.length>=10){ const area=sn.substring(8,10); detectedSku=skuOf(area); $('t-sn').textContent=sn; $('t-region').textContent=area; $('t-sku').textContent=detectedSku; log('serial '+sn+' -> region '+area+' (SKU '+detectedSku+')'); updateRegionToggle(); detectModel(sn); }
   else log('SN report: '+hexs(f));
 }
 // Resolve the connected model from the serial and update the feature card + gating.
@@ -412,6 +412,10 @@ function applyModelCaps(){
   set('lock', 1);                                   // Wegfahrsperre - whole line supports 0x51
   set('cruise', detectedCaps ? detectedCaps[1] : null);
   set('zero',   detectedCaps ? detectedCaps[2] : null);
+  // Zero-start levels 0-2 (ride off without pushing) are USA-SKU only; the meter clamps them to 3
+  // elsewhere. Hide them on non-USA units; the row still offers 3-5 (push-off threshold). Verified:
+  // meter clamp FUN_08014230, start-speed USA gate in navee_gesamtanalyse.md.
+  const zsel=$('zero-in'); if(zsel) zsel.querySelectorAll('option').forEach(o=>{ if(parseInt(o.value,10)<3) o.hidden=(detectedSku!=='USA'); });
   const fm=$('fn-model');
   if(fm) fm.textContent = connected
     ? (detectedModel ? t('fnModel').replace('%s', detectedModel) : t('fnModelUnknown'))
@@ -733,7 +737,7 @@ async function doDiag(){
 }
 
 
-function onDisconnect(){ connected=false; authed=false; autoReadDone=false; phase2Sent=false; afterAuthDone=false; lastMaxSpeed=null; detectedModel=null; detectedCaps=null; detectedSpeed=null; writeCh=notifyCh=null; rx=[]; const mt=$('t-model'); if(mt) mt.textContent='-'; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); applyModelCaps(); resetTiles(); }
+function onDisconnect(){ connected=false; authed=false; autoReadDone=false; phase2Sent=false; afterAuthDone=false; lastMaxSpeed=null; detectedModel=null; detectedCaps=null; detectedSpeed=null; detectedSku=null; writeCh=notifyCh=null; rx=[]; const mt=$('t-model'); if(mt) mt.textContent='-'; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); applyModelCaps(); resetTiles(); }
 function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(); }
 
 // The connect button stays disabled until we have something to authenticate with: a numeric account
