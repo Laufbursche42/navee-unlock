@@ -116,7 +116,11 @@ const SPEED = {
   '2754':['E60 Pro: bis etwa 32,5 km/h auf freizügiger Region, sonst region-gedrosselt.',
           'E60 Pro: up to about 32.5 km/h on a permissive region, otherwise region-limited.'],
 };
-let detectedModel=null, detectedCaps=null, detectedSpeed=null, detectedSku=null;   // detectedCaps = [name, cruise, kick]; detectedSpeed = [deHint, enHint] or null; detectedSku = EUR/ITA/USA
+let detectedModel=null, detectedCaps=null, detectedSpeed=null, detectedSku=null, detectedBldcFw=null;   // detectedCaps = [name, cruise, kick]; detectedSpeed = [deHint, enHint] or null; detectedSku = EUR/ITA/USA; detectedBldcFw = controller version string
+// A scooter flashed with our capZ latch firmware reports controller version 5.5.5.6. Those unlock on
+// gear 5 / lock on gear 6 (a non-gear value, so gear changes never re-lock); every other model keeps
+// its stock flash-free lever untouched.
+function isCapZ(){ return detectedBldcFw === '5.5.5.6'; }
 
 // ---------- helpers ----------
 const $ = id => document.getElementById(id);
@@ -420,10 +424,14 @@ function applyModelCaps(){
   if(fm) fm.textContent = connected
     ? (detectedModel ? t('fnModel').replace('%s', detectedModel) : t('fnModelUnknown'))
     : t('fnConnect');
-  // Speed card (gear lever): only for the four families where the lever is proven end-to-end.
-  const tc=$('tu-card'); const showSpeed = connected && !!detectedSpeed;
+  // Speed card (gear lever): the four flash-free families (detectedSpeed), plus any scooter running
+  // our capZ latch firmware (isCapZ, controller marker 5.5.5.6).
+  const tc=$('tu-card'); const showSpeed = connected && (!!detectedSpeed || isCapZ());
   if(tc) tc.hidden = !showSpeed;
-  const sh=$('tu-model-hint'); if(sh){ sh.textContent = detectedSpeed ? detectedSpeed[lang==='en'?1:0] : ''; sh.hidden = !showSpeed; }
+  const sh=$('tu-model-hint'); if(sh){ sh.textContent = isCapZ() ? t('capzHint') : (detectedSpeed ? detectedSpeed[lang==='en'?1:0] : ''); sh.hidden = !showSpeed; }
+  // The flash-free notes (tuHint/tuBehavior) do not apply to capZ firmware, hide them there.
+  const th=$('tu-hint'); if(th) th.hidden = isCapZ();
+  const tb=$('tu-behavior'); if(tb) tb.hidden = isCapZ();
 }
 // Factory reply payload: 55 AA 00 <cmd> <len> <payload...> <cksum> AE AD (payload = len bytes at [5]).
 function factoryPayload(f){ const len=f[4]||0; return f.slice(5, 5+len); }
@@ -474,6 +482,8 @@ function decodeFirmware(f){
   const ver=(o)=>{ if(o+4>p.length) return null; let s=[]; for(let i=o;i<o+4;i++) s.push(String.fromCharCode(p[i])); return s.join('.'); };
   const parts={ meter:ver(0), bldc:ver(4), bms:ver(8), screen:ver(12), uwb:ver(16) };
   for(const k in parts){ if(parts[k]!=null) setTile('fw-'+k, parts[k]); }
+  detectedBldcFw = parts.bldc;   // capZ marker 5.5.5.6 gates the capZ lock/unlock card
+  applyModelCaps();
   log('firmware: '+JSON.stringify(parts));
 }
 // Live reports (0x90 home, 0x91/0x92 sub). Speed, mode, mileage, fault code.
@@ -690,20 +700,24 @@ async function writeRegionCode(code){
   }
   setTimeout(()=>{ log('write sent -> check the B9 line above: region '+code+' there means it took (power-cycle and test); unchanged means the controller rejected it (lock) or 0x74 reads the serial'); updateRegionToggle(); }, 900);
 }
-// Send the flash-free gear-4 speed unlock (0x58 -> 4), or revert (0x58 -> 3 = normal drive mode).
+// 0x58 gear lever. capZ-flashed scooters unlock on 5 / lock on 6 (non-gear value, survives gear
+// changes). Unflashed: NT-family open on 5 / throttle on 2; all others use 4 / 3.
+function speedGear(open){ if(isCapZ()) return open ? 5 : 6; const nt=/^NT/i.test(detectedModel||''); return open ? (nt?5:4) : (nt?2:3); }
 // No auth-lock or config-lock gate applies to the gear byte, so this works even where a region write
 // would be dropped.
 async function doSpeedUnlock(){
   if(!writeCh){ log('not connected'); return; }
-  await writeToggle(0x58, 4);
+  const g=speedGear(true);
+  await writeToggle(0x58, g);
   speedUnlocked=true; updateRegionToggle();
-  log('speed unlock: gear 4 sent -> meter commands the SKU top speed for '+(detectedModel||'this model')+'. The firmware clamps it to the unit SKU/region. Per session; a gear change to S or a reboot reverts it.');
+  log('speed unlock: gear '+g+' sent -> meter commands the SKU top speed for '+(detectedModel||'this model')+'. The firmware clamps it to the unit SKU/region. Per session; a gear change to S or a reboot reverts it.');
 }
 async function doSpeedLock(){
   if(!writeCh){ log('not connected'); return; }
-  await writeToggle(0x58, 3);
+  const g=speedGear(false);
+  await writeToggle(0x58, g);
   speedUnlocked=false; updateRegionToggle();
-  log('speed lock: gear 3 sent -> back to normal drive mode.');
+  log('speed lock: gear '+g+' sent -> back to normal drive mode.');
 }
 async function doRegionToggle(){
   if(speedUnlocked) await doSpeedLock(); else await doSpeedUnlock();
@@ -737,7 +751,7 @@ async function doDiag(){
 }
 
 
-function onDisconnect(){ connected=false; authed=false; autoReadDone=false; phase2Sent=false; afterAuthDone=false; lastMaxSpeed=null; detectedModel=null; detectedCaps=null; detectedSpeed=null; detectedSku=null; writeCh=notifyCh=null; rx=[]; const mt=$('t-model'); if(mt) mt.textContent='-'; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); applyModelCaps(); resetTiles(); }
+function onDisconnect(){ connected=false; authed=false; autoReadDone=false; phase2Sent=false; afterAuthDone=false; lastMaxSpeed=null; detectedModel=null; detectedCaps=null; detectedSpeed=null; detectedSku=null; detectedBldcFw=null; writeCh=notifyCh=null; rx=[]; const mt=$('t-model'); if(mt) mt.textContent='-'; setStatus('disconnected'); log('disconnected'); refreshButtons(); resetSettings(); applyModelCaps(); resetTiles(); }
 function disconnect(){ if(device&&device.gatt.connected) device.gatt.disconnect(); }
 
 // The connect button stays disabled until we have something to authenticate with: a numeric account
